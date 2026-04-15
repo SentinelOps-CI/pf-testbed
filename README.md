@@ -1,3 +1,5 @@
+<div align="center">
+
 # Provability Fabric Testbed
 
 Secure, observable, multi-tenant infrastructure for building and validating AI workflow systems.
@@ -5,6 +7,8 @@ Secure, observable, multi-tenant infrastructure for building and validating AI w
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-2f855a)](https://nodejs.org/)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.11-2b6cb0)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-4a5568)](./LICENSE)
+
+</div>
 
 ---
 
