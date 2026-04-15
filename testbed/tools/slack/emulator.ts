@@ -1,5 +1,5 @@
 import { BaseToolEmulator, ToolEmulatorConfig } from "../base/emulator";
-import { ToolCall } from "../../runtime/gateway/src/types";
+import { ToolCall } from "../../contracts/types";
 
 /**
  * Slack Tool Emulator
@@ -187,11 +187,7 @@ export class SlackEmulator extends BaseToolEmulator {
     const { action, ...params } = call.parameters;
 
     // Use real for read operations, mock for write operations
-    if (
-      ["get_channel_info", "get_user_info", "get_channel_history"].includes(
-        action,
-      )
-    ) {
+    if (["get_channel_info", "get_user_info", "get_channel_history"].includes(action)) {
       return this.executeReal(call);
     } else {
       return this.executeMock(call);
@@ -328,8 +324,7 @@ export class SlackEmulator extends BaseToolEmulator {
       ok: true,
       messages: limitedMessages,
       has_more: messages.length > limit,
-      latest:
-        messages.length > 0 ? messages[messages.length - 1].ts : undefined,
+      latest: messages.length > 0 ? messages[messages.length - 1].ts : undefined,
       oldest: messages.length > 0 ? messages[0].ts : undefined,
     };
   }

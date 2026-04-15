@@ -51,10 +51,10 @@ export class ReceiptVerifier {
   async verifyReceipt(
     receipt: SignedAccessReceipt,
     context: ReceiptVerificationContext,
-    partition: RetrievalPartition
+    partition: RetrievalPartition,
   ): Promise<ReceiptVerificationResult> {
     const cacheKey = this.generateCacheKey(receipt, context);
-    
+
     // Check cache first
     if (this.verificationCache.has(cacheKey)) {
       this.verificationStats.cache_hits++;
@@ -65,10 +65,10 @@ export class ReceiptVerifier {
     this.verificationStats.total_verifications++;
 
     const result = await this.performVerification(receipt, context, partition);
-    
+
     // Cache the result
     this.verificationCache.set(cacheKey, result);
-    
+
     // Update stats
     if (result.valid) {
       this.verificationStats.successful_verifications++;
@@ -86,28 +86,29 @@ export class ReceiptVerifier {
   private async performVerification(
     receipt: SignedAccessReceipt,
     context: ReceiptVerificationContext,
-    partition: RetrievalPartition
+    partition: RetrievalPartition,
   ): Promise<ReceiptVerificationResult> {
     const verification_timestamp = new Date().toISOString();
-    
+
     // 1. Verify signature
     const signature_valid = await this.verifySignature(receipt, partition);
-    
+
     // 2. Verify expiration
     const expiration_valid = this.verifyExpiration(receipt);
-    
+
     // 3. Verify tenant match
     const tenant_match = this.verifyTenantMatch(receipt, context);
-    
+
     // 4. Verify partition validity
     const partition_valid = this.verifyPartition(receipt, partition);
-    
+
     // 5. Verify plan step consistency
     const plan_step_valid = this.verifyPlanStep(receipt, context);
-    
+
     // Overall validity
-    const valid = signature_valid && expiration_valid && tenant_match && partition_valid && plan_step_valid;
-    
+    const valid =
+      signature_valid && expiration_valid && tenant_match && partition_valid && plan_step_valid;
+
     const result: ReceiptVerificationResult = {
       valid,
       verification_timestamp,
@@ -129,7 +130,10 @@ export class ReceiptVerifier {
   /**
    * Verify cryptographic signature of the receipt
    */
-  private async verifySignature(receipt: SignedAccessReceipt, partition: RetrievalPartition): Promise<boolean> {
+  private async verifySignature(
+    receipt: SignedAccessReceipt,
+    partition: RetrievalPartition,
+  ): Promise<boolean> {
     try {
       const expectedSignature = await this.generateExpectedSignature(receipt, partition);
       return receipt.signature === expectedSignature;
@@ -142,7 +146,10 @@ export class ReceiptVerifier {
   /**
    * Generate expected signature for comparison
    */
-  private async generateExpectedSignature(receipt: SignedAccessReceipt, partition: RetrievalPartition): Promise<string> {
+  private async generateExpectedSignature(
+    receipt: SignedAccessReceipt,
+    partition: RetrievalPartition,
+  ): Promise<string> {
     // In production, this would use the actual private key from the partition
     const receiptData = JSON.stringify({
       id: receipt.id,
@@ -175,7 +182,10 @@ export class ReceiptVerifier {
   /**
    * Verify tenant matches between receipt and context
    */
-  private verifyTenantMatch(receipt: SignedAccessReceipt, context: ReceiptVerificationContext): boolean {
+  private verifyTenantMatch(
+    receipt: SignedAccessReceipt,
+    context: ReceiptVerificationContext,
+  ): boolean {
     return receipt.tenant === context.tenant;
   }
 
@@ -183,17 +193,21 @@ export class ReceiptVerifier {
    * Verify partition is valid and accessible
    */
   private verifyPartition(receipt: SignedAccessReceipt, partition: RetrievalPartition): boolean {
-    return partition.id === receipt.partition_id && 
-           partition.tenant === receipt.tenant &&
-           partition.access_policy !== "disabled";
+    return (
+      partition.id === receipt.partition_id &&
+      partition.tenant === receipt.tenant &&
+      partition.access_policy !== "disabled"
+    );
   }
 
   /**
    * Verify plan step consistency
    */
-  private verifyPlanStep(receipt: SignedAccessReceipt, context: ReceiptVerificationContext): boolean {
-    return receipt.plan_id === context.plan.id &&
-           receipt.plan_step_id === context.step.id;
+  private verifyPlanStep(
+    receipt: SignedAccessReceipt,
+    context: ReceiptVerificationContext,
+  ): boolean {
+    return receipt.plan_id === context.plan.id && receipt.plan_step_id === context.step.id;
   }
 
   /**
@@ -214,7 +228,7 @@ export class ReceiptVerifier {
   private logValidationError(
     receipt: SignedAccessReceipt,
     context: ReceiptVerificationContext,
-    result: ReceiptVerificationResult
+    result: ReceiptVerificationResult,
   ): void {
     const error: ReceiptValidationError = {
       code: "RECEIPT_VERIFICATION_FAILED",
@@ -231,7 +245,7 @@ export class ReceiptVerifier {
     };
 
     this.errorLog.push(error);
-    
+
     // Keep only last 1000 errors to prevent memory issues
     if (this.errorLog.length > 1000) {
       this.errorLog = this.errorLog.slice(-1000);
@@ -241,7 +255,10 @@ export class ReceiptVerifier {
   /**
    * Generate cache key for verification results
    */
-  private generateCacheKey(receipt: SignedAccessReceipt, context: ReceiptVerificationContext): string {
+  private generateCacheKey(
+    receipt: SignedAccessReceipt,
+    context: ReceiptVerificationContext,
+  ): string {
     const keyData = {
       receipt_id: receipt.id,
       plan_id: context.plan.id,
@@ -249,7 +266,7 @@ export class ReceiptVerifier {
       tenant: context.tenant,
       user_id: context.user_id,
     };
-    
+
     return createHash("sha256").update(JSON.stringify(keyData)).digest("hex");
   }
 
@@ -259,12 +276,12 @@ export class ReceiptVerifier {
   async batchVerifyReceipts(
     receipts: SignedAccessReceipt[],
     context: ReceiptVerificationContext,
-    partition: RetrievalPartition
+    partition: RetrievalPartition,
   ): Promise<ReceiptVerificationResult[]> {
     const results = await Promise.all(
-      receipts.map(receipt => this.verifyReceipt(receipt, context, partition))
+      receipts.map((receipt) => this.verifyReceipt(receipt, context, partition)),
     );
-    
+
     return results;
   }
 

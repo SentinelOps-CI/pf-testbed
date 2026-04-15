@@ -1,9 +1,4 @@
-import {
-  MeteringService,
-  StripeConfig,
-  UsageMetrics,
-  BillingTier,
-} from "../../runtime/gateway/src/metering";
+import { MeteringService, StripeConfig, UsageMetrics } from "../../../runtime/gateway/src/metering";
 
 describe("MeteringService", () => {
   let meteringService: MeteringService;
@@ -28,7 +23,7 @@ describe("MeteringService", () => {
     it("should have three billing tiers", () => {
       const tiers = meteringService.listBillingTiers();
       expect(tiers).toHaveLength(3);
-      expect(tiers.map((t) => t.name)).toEqual([
+      expect(tiers.map((t: { name: string }) => t.name)).toEqual([
         "Basic",
         "Professional",
         "Enterprise",
@@ -82,10 +77,7 @@ describe("MeteringService", () => {
       meteringService.recordUsage(metrics);
 
       const currentPeriod = new Date().toISOString().slice(0, 7); // YYYY-MM
-      const recordedMetrics = meteringService.getUsageMetrics(
-        "test-tenant",
-        currentPeriod,
-      );
+      const recordedMetrics = meteringService.getUsageMetrics("test-tenant", currentPeriod);
 
       expect(recordedMetrics).toHaveLength(1);
       expect(recordedMetrics[0]).toEqual(metrics);
@@ -126,10 +118,7 @@ describe("MeteringService", () => {
       meteringService.recordUsage(session2);
 
       const currentPeriod = new Date().toISOString().slice(0, 7);
-      const recordedMetrics = meteringService.getUsageMetrics(
-        "test-tenant",
-        currentPeriod,
-      );
+      const recordedMetrics = meteringService.getUsageMetrics("test-tenant", currentPeriod);
 
       expect(recordedMetrics).toHaveLength(2);
     });
@@ -169,19 +158,13 @@ describe("MeteringService", () => {
       meteringService.recordUsage(metrics2);
 
       const currentPeriod = new Date().toISOString().slice(0, 7);
-      const tenant1Metrics = meteringService.getUsageMetrics(
-        "tenant-1",
-        currentPeriod,
-      );
-      const tenant2Metrics = meteringService.getUsageMetrics(
-        "tenant-2",
-        currentPeriod,
-      );
+      const tenant1Metrics = meteringService.getUsageMetrics("tenant-1", currentPeriod);
+      const tenant2Metrics = meteringService.getUsageMetrics("tenant-2", currentPeriod);
 
       expect(tenant1Metrics).toHaveLength(1);
       expect(tenant2Metrics).toHaveLength(1);
-      expect(tenant1Metrics[0].tenant_id).toBe("tenant-1");
-      expect(tenant2Metrics[0].tenant_id).toBe("tenant-2");
+      expect(tenant1Metrics[0]!.tenant_id).toBe("tenant-1");
+      expect(tenant2Metrics[0]!.tenant_id).toBe("tenant-2");
     });
   });
 
@@ -205,10 +188,7 @@ describe("MeteringService", () => {
       meteringService.recordUsage(metrics);
 
       const currentPeriod = new Date().toISOString().slice(0, 7);
-      const costBreakdown = meteringService.calculateCost(
-        "test-tenant",
-        currentPeriod,
-      );
+      const costBreakdown = meteringService.calculateCost("test-tenant", currentPeriod);
 
       // Basic tier calculations
       expect(costBreakdown.base_cost).toBe(50.0);
@@ -222,8 +202,7 @@ describe("MeteringService", () => {
       expect(costBreakdown.violation_cost).toBeCloseTo(2.0, 2); // 2 violations * $1.0/violation
       expect(costBreakdown.risk_adjustment).toBeCloseTo(0, 2); // Basic tier has 1.0x multiplier
 
-      const expectedTotal =
-        50.0 + 0.36 + 0.05 + 0.1 + 0.5 + 0.125 + 0.02 + 0.5 + 2.0;
+      const expectedTotal = 50.0 + 0.36 + 0.05 + 0.1 + 0.5 + 0.125 + 0.02 + 0.5 + 2.0;
       expect(costBreakdown.total_cost).toBeCloseTo(expectedTotal, 2);
     });
 
@@ -246,10 +225,7 @@ describe("MeteringService", () => {
       meteringService.recordUsage(metrics);
 
       const currentPeriod = new Date().toISOString().slice(0, 7);
-      const costBreakdown = meteringService.calculateCost(
-        "test-tenant",
-        currentPeriod,
-      );
+      const costBreakdown = meteringService.calculateCost("test-tenant", currentPeriod);
 
       // Note: Currently defaults to Basic tier, but we can test the calculation logic
       expect(costBreakdown.base_cost).toBe(50.0);
@@ -258,10 +234,7 @@ describe("MeteringService", () => {
 
     it("should return empty cost breakdown for no usage", () => {
       const currentPeriod = new Date().toISOString().slice(0, 7);
-      const costBreakdown = meteringService.calculateCost(
-        "no-usage-tenant",
-        currentPeriod,
-      );
+      const costBreakdown = meteringService.calculateCost("no-usage-tenant", currentPeriod);
 
       expect(costBreakdown.base_cost).toBe(0);
       expect(costBreakdown.total_cost).toBe(0);
@@ -290,10 +263,7 @@ describe("MeteringService", () => {
       meteringService.recordUsage(metrics);
 
       const currentPeriod = new Date().toISOString().slice(0, 7);
-      const invoice = await meteringService.generateInvoice(
-        "test-tenant",
-        currentPeriod,
-      );
+      const invoice = await meteringService.generateInvoice("test-tenant", currentPeriod);
 
       expect(invoice.invoice_id).toMatch(/^INV-\d+-[a-f0-9]{8}$/);
       expect(invoice.tenant_id).toBe("test-tenant");
@@ -329,7 +299,7 @@ describe("MeteringService", () => {
 
       const invoices = meteringService.getInvoices("test-tenant");
       expect(invoices).toHaveLength(1);
-      expect(invoices[0].tenant_id).toBe("test-tenant");
+      expect(invoices[0]!.tenant_id).toBe("test-tenant");
     });
 
     it("should generate unique invoice IDs", async () => {
@@ -351,14 +321,8 @@ describe("MeteringService", () => {
       meteringService.recordUsage(metrics);
 
       const currentPeriod = new Date().toISOString().slice(0, 7);
-      const invoice1 = await meteringService.generateInvoice(
-        "test-tenant",
-        currentPeriod,
-      );
-      const invoice2 = await meteringService.generateInvoice(
-        "test-tenant",
-        currentPeriod,
-      );
+      const invoice1 = await meteringService.generateInvoice("test-tenant", currentPeriod);
+      const invoice2 = await meteringService.generateInvoice("test-tenant", currentPeriod);
 
       expect(invoice1.invoice_id).not.toBe(invoice2.invoice_id);
     });
@@ -385,9 +349,7 @@ describe("MeteringService", () => {
 
       const prometheusMetrics = meteringService.exportPrometheusMetrics();
 
-      expect(prometheusMetrics).toContain(
-        "# HELP pf_usage_cpu_ms CPU usage in milliseconds",
-      );
+      expect(prometheusMetrics).toContain("# HELP pf_usage_cpu_ms CPU usage in milliseconds");
       expect(prometheusMetrics).toContain("# TYPE pf_usage_cpu_ms counter");
       expect(prometheusMetrics).toContain(
         'pf_usage_cpu_ms{tenant="test-tenant",session="session-123"} 1000',
@@ -463,18 +425,10 @@ describe("MeteringService", () => {
 
   describe("Billing Tier Management", () => {
     it("should validate billing tier updates", () => {
-      expect(
-        meteringService.updateTenantBillingTier("test-tenant", "basic"),
-      ).toBe(true);
-      expect(
-        meteringService.updateTenantBillingTier("test-tenant", "professional"),
-      ).toBe(true);
-      expect(
-        meteringService.updateTenantBillingTier("test-tenant", "enterprise"),
-      ).toBe(true);
-      expect(
-        meteringService.updateTenantBillingTier("test-tenant", "non-existent"),
-      ).toBe(false);
+      expect(meteringService.updateTenantBillingTier("test-tenant", "basic")).toBe(true);
+      expect(meteringService.updateTenantBillingTier("test-tenant", "professional")).toBe(true);
+      expect(meteringService.updateTenantBillingTier("test-tenant", "enterprise")).toBe(true);
+      expect(meteringService.updateTenantBillingTier("test-tenant", "non-existent")).toBe(false);
     });
   });
 
@@ -498,10 +452,7 @@ describe("MeteringService", () => {
       meteringService.recordUsage(metrics);
 
       const currentPeriod = new Date().toISOString().slice(0, 7);
-      const costBreakdown = meteringService.calculateCost(
-        "test-tenant",
-        currentPeriod,
-      );
+      const costBreakdown = meteringService.calculateCost("test-tenant", currentPeriod);
 
       expect(costBreakdown.cpu_cost).toBe(0);
       expect(costBreakdown.network_cost).toBe(0);
@@ -532,13 +483,10 @@ describe("MeteringService", () => {
       meteringService.recordUsage(metrics);
 
       const currentPeriod = new Date().toISOString().slice(0, 7);
-      const costBreakdown = meteringService.calculateCost(
-        "test-tenant",
-        currentPeriod,
-      );
+      const costBreakdown = meteringService.calculateCost("test-tenant", currentPeriod);
 
       expect(costBreakdown.total_cost).toBeGreaterThan(0);
-      expect(costBreakdown.total_cost).toBeFinite();
+      expect(Number.isFinite(costBreakdown.total_cost)).toBe(true);
     });
 
     it("should handle decimal risk scores correctly", () => {
@@ -560,13 +508,10 @@ describe("MeteringService", () => {
       meteringService.recordUsage(metrics);
 
       const currentPeriod = new Date().toISOString().slice(0, 7);
-      const costBreakdown = meteringService.calculateCost(
-        "test-tenant",
-        currentPeriod,
-      );
+      const costBreakdown = meteringService.calculateCost("test-tenant", currentPeriod);
 
       expect(costBreakdown.total_cost).toBeGreaterThan(0);
-      expect(costBreakdown.total_cost).toBeFinite();
+      expect(Number.isFinite(costBreakdown.total_cost)).toBe(true);
     });
   });
 });

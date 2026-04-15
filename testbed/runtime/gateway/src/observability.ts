@@ -1,5 +1,4 @@
-import { Plan, PlanStep, ToolTrace, AccessReceipt } from "./types";
-import { DecisionPathTrace, SafetyCase, EgressCertificate, RetrievalReceipt } from "./decision_path";
+import { Plan } from "./types";
 
 // Enhanced trace linking for Lean theorem integration
 export interface LeanTheoremMapping {
@@ -36,13 +35,13 @@ export interface ObservabilityMetrics {
   theorem_verification_rate: number;
   // Paper-faithful metrics
   decision_path_phases: {
-    observe: { count: number; avg_duration: number; success_rate: number };
-    retrieve: { count: number; avg_duration: number; success_rate: number; receipt_count: number };
-    plan: { count: number; avg_duration: number; success_rate: number };
-    kernel: { count: number; avg_duration: number; success_rate: number; policy_violations: number };
-    tool_broker: { count: number; avg_duration: number; success_rate: number; tools_executed: number };
-    egress: { count: number; avg_duration: number; success_rate: number; certs_generated: number; pii_blocked: number };
-    safety_case: { count: number; avg_duration: number; success_rate: number; cases_generated: number };
+    observe: DecisionPathPhaseMetrics;
+    retrieve: DecisionPathPhaseMetrics;
+    plan: DecisionPathPhaseMetrics;
+    kernel: DecisionPathPhaseMetrics;
+    tool_broker: DecisionPathPhaseMetrics;
+    egress: DecisionPathPhaseMetrics;
+    safety_case: DecisionPathPhaseMetrics;
   };
   non_interference: {
     total_checks: number;
@@ -99,7 +98,14 @@ export interface ViewLayout {
 
 export interface PanelConfig {
   id: string;
-  type: "metrics" | "traces" | "theorems" | "alerts" | "decision_path" | "certificates" | "receipts";
+  type:
+    | "metrics"
+    | "traces"
+    | "theorems"
+    | "alerts"
+    | "decision_path"
+    | "certificates"
+    | "receipts";
   position: {
     x: number;
     y: number;
@@ -113,15 +119,33 @@ export interface PanelConfig {
 export interface SecurityAlert {
   id: string;
   severity: "low" | "medium" | "high" | "critical";
-  type: "policy_violation" | "non_interference_failure" | "receipt_forgery" | "certificate_tampering" | "decision_path_failure";
+  type:
+    | "policy_violation"
+    | "non_interference_failure"
+    | "receipt_forgery"
+    | "certificate_tampering"
+    | "decision_path_failure";
   message: string;
   trace_id?: string;
   plan_id?: string;
   tenant: string;
+  proof_hash?: string;
   timestamp: string;
   acknowledged: boolean;
   acknowledged_by?: string;
   acknowledged_at?: string;
+}
+
+export interface DecisionPathPhaseMetrics {
+  count: number;
+  avg_duration: number;
+  success_rate: number;
+  receipt_count?: number;
+  policy_violations?: number;
+  tools_executed?: number;
+  certs_generated?: number;
+  pii_blocked?: number;
+  cases_generated?: number;
 }
 
 // Core observability service
@@ -202,11 +226,7 @@ export class ObservabilityService {
   }
 
   // Link trace to Lean theorem and spec lines
-  linkLeanTheorem(
-    trace_id: string,
-    theorem: LeanTheoremMapping,
-    spec_lines: string[],
-  ): void {
+  linkLeanTheorem(trace_id: string, theorem: LeanTheoremMapping, spec_lines: string[]): void {
     const context = this.traceContexts.get(trace_id);
     if (!context) {
       throw new Error(`Trace context not found: ${trace_id}`);
@@ -220,16 +240,11 @@ export class ObservabilityService {
   }
 
   // Update theorem verification status
-  private updateTheoremVerificationStatus(
-    trace_id: string,
-    theorem_id: string,
-  ): void {
+  private updateTheoremVerificationStatus(trace_id: string, theorem_id: string): void {
     const context = this.traceContexts.get(trace_id);
     if (!context) return;
 
-    const theorem = context.lean_theorems.find(
-      (t) => t.theorem_id === theorem_id,
-    );
+    const theorem = context.lean_theorems.find((t) => t.theorem_id === theorem_id);
     if (theorem) {
       theorem.verification_status = "verified";
       theorem.last_verified = new Date().toISOString();
@@ -261,9 +276,7 @@ export class ObservabilityService {
   }
 
   // Save view for specific journey and tenant
-  saveView(
-    view: Omit<SavedView, "id" | "created_at" | "updated_at">,
-  ): SavedView {
+  saveView(view: Omit<SavedView, "id" | "created_at" | "updated_at">): SavedView {
     const id = this.generateViewId();
     const now = new Date().toISOString();
 
@@ -293,46 +306,49 @@ export class ObservabilityService {
     metadata?: Record<string, any>,
   ): void {
     const phaseMetrics = this.metrics.decision_path_phases[phase];
-    
+
     // Update counts
     phaseMetrics.count++;
-    
+
     // Update average duration
     const totalDuration = phaseMetrics.avg_duration * (phaseMetrics.count - 1) + duration;
     phaseMetrics.avg_duration = totalDuration / phaseMetrics.count;
-    
+
     // Update success rate
     const totalSuccesses = phaseMetrics.success_rate * (phaseMetrics.count - 1) + (success ? 1 : 0);
     phaseMetrics.success_rate = totalSuccesses / phaseMetrics.count;
-    
+
     // Update phase-specific metrics
     switch (phase) {
       case "retrieve":
         if (metadata?.receipt_count) {
-          phaseMetrics.receipt_count += metadata.receipt_count;
+          phaseMetrics.receipt_count = (phaseMetrics.receipt_count || 0) + metadata.receipt_count;
         }
         break;
       case "kernel":
         if (!success && metadata?.policy_violation) {
-          phaseMetrics.policy_violations++;
+          phaseMetrics.policy_violations = (phaseMetrics.policy_violations || 0) + 1;
         }
         break;
       case "tool_broker":
         if (metadata?.tools_executed) {
-          phaseMetrics.tools_executed += metadata.tools_executed;
+          phaseMetrics.tools_executed =
+            (phaseMetrics.tools_executed || 0) + metadata.tools_executed;
         }
         break;
       case "egress":
         if (metadata?.certs_generated) {
-          phaseMetrics.certs_generated += metadata.certs_generated;
+          phaseMetrics.certs_generated =
+            (phaseMetrics.certs_generated || 0) + metadata.certs_generated;
         }
         if (metadata?.pii_blocked) {
-          phaseMetrics.pii_blocked += metadata.pii_blocked;
+          phaseMetrics.pii_blocked = (phaseMetrics.pii_blocked || 0) + metadata.pii_blocked;
         }
         break;
       case "safety_case":
         if (metadata?.cases_generated) {
-          phaseMetrics.cases_generated += metadata.cases_generated;
+          phaseMetrics.cases_generated =
+            (phaseMetrics.cases_generated || 0) + metadata.cases_generated;
         }
         break;
     }
@@ -341,12 +357,12 @@ export class ObservabilityService {
   // Paper-faithful: Record non-interference check result
   recordNonInterferenceCheck(passed: boolean, level: string, proof_hash: string): void {
     this.metrics.non_interference.total_checks++;
-    
+
     if (passed) {
       this.metrics.non_interference.passed++;
     } else {
       this.metrics.non_interference.failed++;
-      
+
       // Create security alert for NI failure
       this.createSecurityAlert({
         severity: "high",
@@ -356,8 +372,8 @@ export class ObservabilityService {
         proof_hash,
       });
     }
-    
-    this.metrics.non_interference.success_rate = 
+
+    this.metrics.non_interference.success_rate =
       this.metrics.non_interference.passed / this.metrics.non_interference.total_checks;
   }
 
@@ -372,37 +388,46 @@ export class ObservabilityService {
     this.metrics.certificates.pii_detected += pii_detected;
     this.metrics.certificates.secrets_detected += secrets_detected;
     this.metrics.certificates.near_dup_detected += near_dup_detected;
-    
+
     // Update average processing time
-    const totalTime = this.metrics.certificates.avg_processing_time * (this.metrics.certificates.total_generated - 1) + processing_time;
-    this.metrics.certificates.avg_processing_time = totalTime / this.metrics.certificates.total_generated;
+    const totalTime =
+      this.metrics.certificates.avg_processing_time *
+        (this.metrics.certificates.total_generated - 1) +
+      processing_time;
+    this.metrics.certificates.avg_processing_time =
+      totalTime / this.metrics.certificates.total_generated;
   }
 
   // Paper-faithful: Record receipt generation
   recordReceiptGeneration(valid_signature: boolean, lifetime_hours: number): void {
     this.metrics.receipts.total_generated++;
-    
+
     if (valid_signature) {
       this.metrics.receipts.valid_signatures++;
     }
-    
+
     // Update average lifetime
-    const totalLifetime = this.metrics.receipts.avg_lifetime_hours * (this.metrics.receipts.total_generated - 1) + lifetime_hours;
-    this.metrics.receipts.avg_lifetime_hours = totalLifetime / this.metrics.receipts.total_generated;
+    const totalLifetime =
+      this.metrics.receipts.avg_lifetime_hours * (this.metrics.receipts.total_generated - 1) +
+      lifetime_hours;
+    this.metrics.receipts.avg_lifetime_hours =
+      totalLifetime / this.metrics.receipts.total_generated;
   }
 
   // Paper-faithful: Create security alert
-  createSecurityAlert(alert: Omit<SecurityAlert, "id" | "timestamp" | "acknowledged">): SecurityAlert {
+  createSecurityAlert(
+    alert: Omit<SecurityAlert, "id" | "timestamp" | "acknowledged">,
+  ): SecurityAlert {
     const id = this.generateAlertId();
     const timestamp = new Date().toISOString();
-    
+
     const securityAlert: SecurityAlert = {
       ...alert,
       id,
       timestamp,
       acknowledged: false,
     };
-    
+
     this.securityAlerts.set(id, securityAlert);
     return securityAlert;
   }
@@ -425,23 +450,23 @@ export class ObservabilityService {
     acknowledged?: boolean,
   ): SecurityAlert[] {
     let alerts = Array.from(this.securityAlerts.values());
-    
+
     if (severity) {
-      alerts = alerts.filter(a => a.severity === severity);
+      alerts = alerts.filter((a) => a.severity === severity);
     }
-    
+
     if (type) {
-      alerts = alerts.filter(a => a.type === type);
+      alerts = alerts.filter((a) => a.type === type);
     }
-    
+
     if (tenant) {
-      alerts = alerts.filter(a => a.tenant === tenant);
+      alerts = alerts.filter((a) => a.tenant === tenant);
     }
-    
+
     if (acknowledged !== undefined) {
-      alerts = alerts.filter(a => a.acknowledged === acknowledged);
+      alerts = alerts.filter((a) => a.acknowledged === acknowledged);
     }
-    
+
     return alerts.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
@@ -454,20 +479,24 @@ export class ObservabilityService {
     const phases = this.metrics.decision_path_phases;
     const bottlenecks: string[] = [];
     const recommendations: string[] = [];
-    
+
     // Identify bottlenecks (phases with high duration or low success rate)
     for (const [phase, metrics] of Object.entries(phases)) {
-      if (metrics.avg_duration > 1000) { // > 1 second
+      if (metrics.avg_duration > 1000) {
+        // > 1 second
         bottlenecks.push(`${phase}: high latency (${metrics.avg_duration.toFixed(2)}ms)`);
         recommendations.push(`Optimize ${phase} phase performance`);
       }
-      
-      if (metrics.success_rate < 0.95) { // < 95% success rate
-        bottlenecks.push(`${phase}: low success rate (${(metrics.success_rate * 100).toFixed(1)}%)`);
+
+      if (metrics.success_rate < 0.95) {
+        // < 95% success rate
+        bottlenecks.push(
+          `${phase}: low success rate (${(metrics.success_rate * 100).toFixed(1)}%)`,
+        );
         recommendations.push(`Investigate ${phase} phase failures`);
       }
     }
-    
+
     return {
       phase_performance: phases,
       bottlenecks,
@@ -483,15 +512,10 @@ export class ObservabilityService {
     const traces = Array.from(this.traceContexts.values());
     const verifiedTheorems = traces.reduce(
       (count, trace) =>
-        count +
-        trace.lean_theorems.filter((t) => t.verification_status === "verified")
-          .length,
+        count + trace.lean_theorems.filter((t) => t.verification_status === "verified").length,
       0,
     );
-    const totalTheorems = traces.reduce(
-      (count, trace) => count + trace.lean_theorems.length,
-      0,
-    );
+    const totalTheorems = traces.reduce((count, trace) => count + trace.lean_theorems.length, 0);
 
     this.metrics.theorem_verification_rate =
       totalTheorems > 0 ? verifiedTheorems / totalTheorems : 0;

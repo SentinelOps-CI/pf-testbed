@@ -1,246 +1,97 @@
-# Quick Start Guide - Provability Fabric Testbed
+# Quick Start
 
-**Get up and running with the state-of-the-art dependency management system in minutes!**
+## 1) Prerequisites
 
-## **5-Minute Setup**
-
-### **Step 1: Prerequisites Check**
 ```bash
-# Verify Python 3.8+
 python --version
-
-# Verify Node.js 18+
 node --version
-
-# Verify Git
 git --version
 ```
 
-### **Step 2: Clone & Setup**
+Recommended: Node 18+, Python 3.11+.
+
+## 2) Clone and Install
+
 ```bash
-# Clone the repository
 git clone https://github.com/provability-fabric/pf-testbed.git
 cd pf-testbed
-
-# Install all dependencies (automatically detects your platform)
-make deps
+npm ci
+python -m pip install -r requirements.txt
+python -m pip install -r testbed/tools/reporter/requirements.txt
 ```
 
-### **Step 3: Start Services**
-```bash
-# Start all services
-make up
+## 3) Validate Tooling and Contracts
 
-# Verify everything is running
+```bash
+npm run validate:workflows
+npm run retrieval:contract-check
+npm run ci:verify
+```
+
+### What `ci:verify` includes
+
+| Step               | Command               | Role                                               |
+| ------------------ | --------------------- | -------------------------------------------------- |
+| Workflow integrity | `validate:workflows`  | Validates workflow/script references               |
+| Lint               | `lint`                | ESLint on gateway, self-serve ingress, ledger      |
+| Format             | `format:check`        | Prettier on `testbed` sources and docs             |
+| Types              | `typecheck` / `build` | TypeScript compile for gateway, ingress, ledger    |
+| Tests              | `jest`                | Unit tests under `testbed/` (see exclusions below) |
+
+Typechecking applies to the main service `tsconfig` projects; other packages (for example egress firewall) are still exercised by Jest.
+
+### Tests not run by default
+
+`jest.config.js` skips two files that are out of date relative to current APIs:
+
+- `testbed/runtime/gateway/__tests__/agent-zoo.test.ts`
+- `testbed/runtime/policy-kernel/__tests__/kernel.test.ts`
+
+Restore them by updating the tests or the implementations they target, then remove the corresponding `testPathIgnorePatterns` entries.
+
+## 4) Start Local Stack
+
+```bash
+make up
 make status
 ```
 
-### **Step 4: Run Quality Checks**
-```bash
-# Run comprehensive quality validation
-make quality-check
+Default endpoints:
 
-# Generate evidence pack
+- Gateway: `http://localhost:3003`
+- Ingress: `http://localhost:3001`
+- Ledger: `http://localhost:3002`
+- Grafana: `http://localhost:3100`
+- Prometheus: `http://localhost:9090`
+
+## 5) Core Local Flows
+
+```bash
+# stop/start and logs
+make down
+make up
+make logs
+
+# security checks
+npm run security:test
+
+# evidence generation
 make evidence
 ```
 
-**You're ready to go! Access your services at:**
-- **Gateway**: http://localhost:3003
-- **Ingress**: http://localhost:3001
-- **Grafana**: http://localhost:3100
-- **Prometheus**: http://localhost:9090
-
-## **Windows Users - Special Instructions**
-
-If you're on Windows, use these commands instead:
+## Windows Notes
 
 ```cmd
-# Install dependencies
-python scripts/manage-deps.py --install
-
-# Start services
+python scripts\manage-deps.py --install
 run.bat up
-
-# Run quality checks
-run.bat test
-
-# Generate evidence
 run.bat evidence
 ```
 
-## **Platform-Specific Setup**
+## Troubleshooting
 
-### **macOS Users**
-```bash
-# Install Homebrew if you haven't
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Install system tools
-brew install k6 terraform
-
-# Then proceed with standard setup
-make deps
-```
-
-### **Linux Users (Ubuntu/Debian)**
-```bash
-# Install system tools
-sudo apt update
-sudo apt install -y k6 terraform
-
-# Then proceed with standard setup
-make deps
-```
-
-### **Linux Users (RHEL/CentOS)**
-```bash
-# Install system tools
-sudo yum install -y k6 terraform
-
-# Then proceed with standard setup
-make deps
-```
-
-## **Advanced Quick Start**
-
-### **Option 1: Full System Setup**
-```bash
-# Install dependencies with security scanning
-make deps-audit
-
-# Run comprehensive testing
-make ci
-
-# Start services with monitoring
-make up
-
-# Generate comprehensive evidence
-make evidence
-```
-
-### **Option 2: Development Setup**
-```bash
-# Install development dependencies
-make deps
-
-# Setup pre-commit hooks
-pre-commit install
-
-# Run development environment
-make dev
-
-# Start coding with quality gates enabled
-```
-
-### **Option 3: Production-Ready Setup**
-```bash
-# Install with production optimizations
-make deps
-
-# Run security validation
-make security-check
-
-# Build production artifacts
-make build
-
-# Deploy to target environment
-make deploy
-```
-
-## **Verify Your Setup**
-
-### **Health Check Commands**
-```bash
-# Check system requirements
-python scripts/manage-deps.py
-
-# Verify services are running
-make status
-
-# Check dependency health
-make deps-audit
-
-# Run quick tests
-make test
-```
-
-### **Expected Output**
-```
-🔍 System Requirements Check:
-  ✅ python
-  ✅ node
-  ✅ npm
-  ✅ pip
-  ✅ docker
-  ✅ k6
-  ✅ terraform
-
-📊 Service Status:
-Name                Command               State           Ports
-pf-gateway          npm start            Up              0.0.0.0:3003->3003/tcp
-pf-ingress          npm start            Up              0.0.0.0:3001->3001/tcp
-pf-ledger           npm start            Up              0.0.0.0:3002->3002/tcp
-grafana             /run.sh              Up              0.0.0.0:3100->3000/tcp
-prometheus          /bin/prometheus      Up              0.0.0.0:9090->9090/tcp
-```
-
-## **Troubleshooting**
-
-### **Common Issues & Solutions**
-
-#### **1. Dependencies Not Installing**
-```bash
-# Clean install
-make deps-clean
-
-# Check system requirements
-python scripts/manage-deps.py
-
-# Manual installation
-python scripts/manage-deps.py --install --clean
-```
-
-#### **2. Services Not Starting**
-```bash
-# Check Docker status
-docker ps -a
-
-# View service logs
-make logs
-
-# Restart services
-make down
-make up
-```
-
-#### **3. Permission Issues**
-```bash
-# Fix file permissions
-chmod +x scripts/manage-deps.py
-chmod +x run.bat
-
-# Run with elevated privileges (if needed)
-sudo make deps
-```
-
-#### **4. Port Conflicts**
-```bash
-# Check what's using the ports
-netstat -tulpn | grep :3003
-netstat -tulpn | grep :3001
-
-# Modify docker-compose.yml if needed
-# Change ports in the ports section
-```
-
-### **Get Help**
-```bash
-# Show all available commands
-make help
-
-# Generate dependency report
-make deps-report
-
-# Run diagnostics
-python scripts/manage-deps.py --report
-```
+- Dependency issues: rerun `npm ci` and Python installs.
+- Service startup issues: run `make logs` and verify Docker is healthy.
+- Workflow drift: run `npm run validate:workflows`.
+- Contract drift: run `npm run retrieval:contract-check`.
+- CI failures on format: run `npm run format` (writes fixes under `testbed/`).
+- ESLint failures: run `npm run lint:fix` where auto-fix applies.

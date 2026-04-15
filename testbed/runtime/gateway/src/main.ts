@@ -1,4 +1,4 @@
-import { app, port } from './server';
+import { app, port } from "./server";
 
 const startServer = () => {
   try {
@@ -9,19 +9,19 @@ const startServer = () => {
       console.log(`📊 Server info at http://localhost:${port}/`);
     });
   } catch (error) {
-    console.error('Failed to start server:', error);
+    console.error("Failed to start server:", error);
     process.exit(1);
   }
 };
 
 // Handle graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
+process.on("SIGTERM", () => {
+  console.log("SIGTERM received, shutting down gracefully");
   process.exit(0);
 });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received, shutting down gracefully');
+process.on("SIGINT", () => {
+  console.log("SIGINT received, shutting down gracefully");
   process.exit(0);
 });
 

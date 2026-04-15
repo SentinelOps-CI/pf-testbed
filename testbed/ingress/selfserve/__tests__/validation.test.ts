@@ -49,9 +49,7 @@ describe("Validation Middleware", () => {
 
       console.log("Generated signature:", signature);
 
-      const response = await request(app)
-        .post("/test")
-        .set("x-pf-signature", signature);
+      const response = await request(app).post("/test").set("x-pf-signature", signature);
 
       console.log("Response status:", response.status);
       console.log("Response body:", JSON.stringify(response.body, null, 2));
@@ -72,9 +70,7 @@ describe("Validation Middleware", () => {
     it("should reject missing PF signature with 403 and PF_SIG_MISSING code", async () => {
       const response = await request(app).post("/test").expect(403);
 
-      expect(response.body.error.code).toBe(
-        VALIDATION_ERROR_CODES.PF_SIG_MISSING,
-      );
+      expect(response.body.error.code).toBe(VALIDATION_ERROR_CODES.PF_SIG_MISSING);
       expect(response.body.error.message).toBe("PF signature is required");
       expect(response.body.timestamp).toBeDefined();
       expect(response.body.request_id).toBeDefined();
@@ -86,9 +82,7 @@ describe("Validation Middleware", () => {
         .set("x-pf-signature", "invalid-signature")
         .expect(403);
 
-      expect(response.body.error.code).toBe(
-        VALIDATION_ERROR_CODES.PF_SIG_INVALID,
-      );
+      expect(response.body.error.code).toBe(VALIDATION_ERROR_CODES.PF_SIG_INVALID);
       expect(response.body.error.message).toBe("Failed to parse signature");
       expect(response.body.timestamp).toBeDefined();
       expect(response.body.request_id).toBeDefined();
@@ -107,9 +101,7 @@ describe("Validation Middleware", () => {
         .set("x-pf-signature", signature)
         .expect(403);
 
-      expect(response.body.error.code).toBe(
-        VALIDATION_ERROR_CODES.PF_SIG_EXPIRED,
-      );
+      expect(response.body.error.code).toBe(VALIDATION_ERROR_CODES.PF_SIG_EXPIRED);
       expect(response.body.error.message).toBe("PF signature has expired");
       expect(response.body.timestamp).toBeDefined();
       expect(response.body.request_id).toBeDefined();
@@ -127,18 +119,14 @@ describe("Validation Middleware", () => {
       const decoded = Buffer.from(signature, "base64").toString("utf-8");
       const parsed = JSON.parse(decoded);
       parsed.tenant = "globex"; // Changed tenant
-      const tamperedSignature = Buffer.from(JSON.stringify(parsed)).toString(
-        "base64",
-      );
+      const tamperedSignature = Buffer.from(JSON.stringify(parsed)).toString("base64");
 
       const response = await request(app)
         .post("/test")
         .set("x-pf-signature", tamperedSignature)
         .expect(403);
 
-      expect(response.body.error.code).toBe(
-        VALIDATION_ERROR_CODES.PF_SIG_INVALID,
-      );
+      expect(response.body.error.code).toBe(VALIDATION_ERROR_CODES.PF_SIG_INVALID);
       expect(response.body.error.message).toBe("Invalid signature");
       expect(response.body.timestamp).toBeDefined();
       expect(response.body.request_id).toBeDefined();
@@ -196,9 +184,7 @@ describe("Validation Middleware", () => {
         .set("x-access-receipts", JSON.stringify([receipt]))
         .expect(403);
 
-      expect(response.body.error.code).toBe(
-        VALIDATION_ERROR_CODES.ACCESS_RECEIPT_INVALID,
-      );
+      expect(response.body.error.code).toBe(VALIDATION_ERROR_CODES.ACCESS_RECEIPT_INVALID);
       expect(response.body.error.message).toBe("Receipt tenant mismatch");
       expect(response.body.timestamp).toBeDefined();
       expect(response.body.request_id).toBeDefined();
@@ -227,9 +213,7 @@ describe("Validation Middleware", () => {
         .set("x-access-receipts", JSON.stringify([receipt]))
         .expect(403);
 
-      expect(response.body.error.code).toBe(
-        VALIDATION_ERROR_CODES.ACCESS_RECEIPT_EXPIRED,
-      );
+      expect(response.body.error.code).toBe(VALIDATION_ERROR_CODES.ACCESS_RECEIPT_EXPIRED);
       expect(response.body.error.message).toBe("Receipt has expired");
       expect(response.body.timestamp).toBeDefined();
       expect(response.body.request_id).toBeDefined();
@@ -255,9 +239,7 @@ describe("Validation Middleware", () => {
         .set("x-access-receipts", JSON.stringify([invalidReceipt]))
         .expect(403);
 
-      expect(response.body.error.code).toBe(
-        VALIDATION_ERROR_CODES.ACCESS_RECEIPT_INVALID,
-      );
+      expect(response.body.error.code).toBe(VALIDATION_ERROR_CODES.ACCESS_RECEIPT_INVALID);
       expect(response.body.error.message).toBe("Invalid receipt schema");
       expect(response.body.timestamp).toBeDefined();
       expect(response.body.request_id).toBeDefined();
@@ -311,10 +293,7 @@ describe("Validation Middleware", () => {
 
       // Make requests up to limit
       for (let i = 0; i < 3; i++) {
-        await request(app)
-          .post("/test")
-          .set("x-pf-signature", signature)
-          .expect(200);
+        await request(app).post("/test").set("x-pf-signature", signature).expect(200);
       }
 
       // Next request should be rate limited
@@ -323,12 +302,8 @@ describe("Validation Middleware", () => {
         .set("x-pf-signature", signature)
         .expect(429);
 
-      expect(response.body.error.code).toBe(
-        VALIDATION_ERROR_CODES.RATE_LIMIT_EXCEEDED,
-      );
-      expect(response.body.error.message).toBe(
-        "Rate limit exceeded for tenant",
-      );
+      expect(response.body.error.code).toBe(VALIDATION_ERROR_CODES.RATE_LIMIT_EXCEEDED);
+      expect(response.body.error.message).toBe("Rate limit exceeded for tenant");
       expect(response.body.error.details.tenant).toBe("acme");
       expect(response.body.error.details.limit).toBe(3);
       expect(response.body.timestamp).toBeDefined();
@@ -383,9 +358,7 @@ describe("Validation Middleware", () => {
         .set("x-pf-signature", "malformed-base64-signature!@#")
         .expect(403);
 
-      expect(response.body.error.code).toBe(
-        VALIDATION_ERROR_CODES.PF_SIG_INVALID,
-      );
+      expect(response.body.error.code).toBe(VALIDATION_ERROR_CODES.PF_SIG_INVALID);
       expect(response.body.error.message).toBe("Failed to parse signature");
       expect(response.body.timestamp).toBeDefined();
       expect(response.body.request_id).toBeDefined();

@@ -139,7 +139,7 @@ export class ContentEgressFirewall {
       {
         name: "password",
         pattern: /\b(password|passwd|pwd)\s*[:=]\s*[^\s\n]{8,}\b/gi,
-        confidence: 0.90,
+        confidence: 0.9,
         type: "password",
         replacement: "[PASSWORD]",
       },
@@ -152,7 +152,8 @@ export class ContentEgressFirewall {
       },
       {
         name: "private_key",
-        pattern: /\b-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----\s*[\s\S]*?-----END\s+(RSA\s+)?PRIVATE\s+KEY-----\b/g,
+        pattern:
+          /\b-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----\s*[\s\S]*?-----END\s+(RSA\s+)?PRIVATE\s+KEY-----\b/g,
         confidence: 0.99,
         type: "private_key",
         replacement: "[PRIVATE_KEY]",
@@ -193,7 +194,7 @@ export class ContentEgressFirewall {
       },
     ];
 
-    defaultPolicies.forEach(policy => {
+    defaultPolicies.forEach((policy) => {
       this.egressPolicies.set(policy.id, policy);
     });
   }
@@ -205,18 +206,20 @@ export class ContentEgressFirewall {
     content: string,
     plan: Plan,
     step: PlanStep,
-    policyId: string = "default_strict"
+    policyId: string = "default_strict",
   ): Promise<EgressFilterResult> {
     const startTime = Date.now();
     const policy = this.egressPolicies.get(policyId);
-    
+
     if (!policy) {
       throw new Error(`Egress policy not found: ${policyId}`);
     }
 
     // Check content length
     if (content.length > policy.max_content_length) {
-      throw new Error(`Content exceeds maximum length: ${content.length} > ${policy.max_content_length}`);
+      throw new Error(
+        `Content exceeds maximum length: ${content.length} > ${policy.max_content_length}`,
+      );
     }
 
     let filteredContent = content;
@@ -289,7 +292,10 @@ export class ContentEgressFirewall {
   /**
    * Detect PII in content
    */
-  private detectPII(content: string, policy: EgressPolicy): {
+  private detectPII(
+    content: string,
+    _policy: EgressPolicy,
+  ): {
     filtered_content: string;
     detected_count: number;
     redacted_items: string[];
@@ -298,11 +304,11 @@ export class ContentEgressFirewall {
     let detectedCount = 0;
     const redactedItems: string[] = [];
 
-    this.piiPatterns.forEach(pattern => {
+    this.piiPatterns.forEach((pattern) => {
       const matches = content.match(pattern.pattern);
       if (matches) {
         detectedCount += matches.length;
-        matches.forEach(match => {
+        matches.forEach((match) => {
           redactedItems.push(`${pattern.name}: ${match}`);
           filteredContent = filteredContent.replace(match, pattern.replacement);
         });
@@ -319,7 +325,10 @@ export class ContentEgressFirewall {
   /**
    * Detect secrets in content
    */
-  private detectSecrets(content: string, policy: EgressPolicy): {
+  private detectSecrets(
+    content: string,
+    _policy: EgressPolicy,
+  ): {
     filtered_content: string;
     detected_count: number;
     redacted_items: string[];
@@ -328,11 +337,11 @@ export class ContentEgressFirewall {
     let detectedCount = 0;
     const redactedItems: string[] = [];
 
-    this.secretPatterns.forEach(pattern => {
+    this.secretPatterns.forEach((pattern) => {
       const matches = content.match(pattern.pattern);
       if (matches) {
         detectedCount += matches.length;
-        matches.forEach(match => {
+        matches.forEach((match) => {
           redactedItems.push(`${pattern.type}: ${match}`);
           filteredContent = filteredContent.replace(match, pattern.replacement);
         });
@@ -356,7 +365,8 @@ export class ContentEgressFirewall {
     // Check against stored hashes for similarity
     this.contentHashes.forEach((storedContent, hash) => {
       const similarity = this.calculateSimHashSimilarity(contentHash, hash);
-      if (similarity > 0.8) { // 80% similarity threshold
+      if (similarity > 0.8) {
+        // 80% similarity threshold
         nearDuplicates.push(hash);
       }
     });
@@ -371,18 +381,21 @@ export class ContentEgressFirewall {
   /**
    * Apply "never reveal" templates
    */
-  private applyNeverRevealTemplates(content: string, policy: EgressPolicy): {
+  private applyNeverRevealTemplates(
+    content: string,
+    policy: EgressPolicy,
+  ): {
     filtered_content: string;
     redacted_items: string[];
   } {
     let filteredContent = content;
     const redactedItems: string[] = [];
 
-    policy.never_reveal.forEach(template => {
+    policy.never_reveal.forEach((template) => {
       const regex = new RegExp(`\\b${template}\\b`, "gi");
       const matches = content.match(regex);
       if (matches) {
-        matches.forEach(match => {
+        matches.forEach((match) => {
           redactedItems.push(`never_reveal: ${match}`);
           filteredContent = filteredContent.replace(match, `[${template.toUpperCase()}]`);
         });
@@ -412,14 +425,14 @@ export class ContentEgressFirewall {
     // Simplified similarity calculation
     let differences = 0;
     const minLength = Math.min(hash1.length, hash2.length);
-    
+
     for (let i = 0; i < minLength; i++) {
       if (hash1[i] !== hash2[i]) {
         differences++;
       }
     }
-    
-    return 1 - (differences / minLength);
+
+    return 1 - differences / minLength;
   }
 
   /**
@@ -447,7 +460,7 @@ export class ContentEgressFirewall {
       redaction_summary: summary,
       timestamp: Date.now(),
     };
-    
+
     return createHash("sha256").update(JSON.stringify(proofData)).digest("hex");
   }
 
@@ -466,14 +479,16 @@ export class ContentEgressFirewall {
     this.processingStats.pii_detected += result.redaction_summary.pii;
     this.processingStats.secrets_detected += result.redaction_summary.secrets;
     this.processingStats.near_dup_detected += result.redaction_summary.near_dup;
-    
+
     if (result.non_interference.verdict === "failed") {
       this.processingStats.blocked_content++;
     }
 
     // Update average processing time
-    const totalTime = this.processingStats.avg_processing_time_ms * (this.processingStats.total_processed - 1);
-    this.processingStats.avg_processing_time_ms = (totalTime + result.processing_time_ms) / this.processingStats.total_processed;
+    const totalTime =
+      this.processingStats.avg_processing_time_ms * (this.processingStats.total_processed - 1);
+    this.processingStats.avg_processing_time_ms =
+      (totalTime + result.processing_time_ms) / this.processingStats.total_processed;
   }
 
   /**

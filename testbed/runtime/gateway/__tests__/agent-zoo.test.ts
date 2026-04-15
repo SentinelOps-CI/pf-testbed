@@ -1,12 +1,12 @@
 import { UnifiedGateway } from "../src/unified-gateway";
-import { GatewayConfig } from "../src/types";
-import { OpenAIAssistantsRunner } from "../../agents/openai_assistants/runner";
-import { LangChainRunner } from "../../agents/langchain/runner";
-import { LangGraphRunner } from "../../agents/langgraph/runner";
-import { DSPyRunner } from "../../agents/dspy/runner";
+import { GatewayConfig, Plan } from "../src/types";
+import { OpenAIAssistantsRunner } from "../../../agents/openai_assistants/runner";
+import { LangChainRunner } from "../../../agents/langchain/runner";
+import { LangGraphRunner } from "../../../agents/langgraph/runner";
+import { DSPyRunner } from "../../../agents/dspy/runner";
 
 // Mock environment variables
-process.env.PF_ENFORCE = "false";
+process.env["PF_ENFORCE"] = "false";
 
 describe("Agent-Zoo Connectors (TB-AGENTS)", () => {
   let gateway: UnifiedGateway;
@@ -69,9 +69,7 @@ describe("Agent-Zoo Connectors (TB-AGENTS)", () => {
 
     const stacks = ["openai-assistants", "langchain", "langgraph", "dspy"];
 
-    const testCases = journeys.flatMap((journey) =>
-      stacks.map((stack) => ({ journey, stack })),
-    );
+    const testCases = journeys.flatMap((journey) => stacks.map((stack) => ({ journey, stack })));
 
     test.each(testCases)(
       "should execute $journey journey on $stack stack",
@@ -112,7 +110,7 @@ describe("Agent-Zoo Connectors (TB-AGENTS)", () => {
           metadata: { test: true },
         };
 
-        const result = await gateway.executePlan(stack, plan, context);
+        const result = await gateway.executePlan(stack, plan as Plan, context);
 
         // Verify execution result
         expect(result.success).toBe(true);
@@ -122,7 +120,7 @@ describe("Agent-Zoo Connectors (TB-AGENTS)", () => {
         expect(result.traces).toHaveLength(1);
 
         // Verify normalized trace
-        const trace = result.traces[0];
+        const trace = result.traces[0]!;
         expect(trace.plan_id).toBe(plan.id);
         expect(trace.agent_stack).toBe(stack);
         expect(trace.journey).toBe(journey);
@@ -180,12 +178,12 @@ describe("Agent-Zoo Connectors (TB-AGENTS)", () => {
       expect(gateway.isEnforceMode()).toBe(false);
 
       // Test enforce mode
-      process.env.PF_ENFORCE = "true";
+      process.env["PF_ENFORCE"] = "true";
       const enforceGateway = new UnifiedGateway(config);
       expect(enforceGateway.isEnforceMode()).toBe(true);
 
       // Reset for other tests
-      process.env.PF_ENFORCE = "false";
+      process.env["PF_ENFORCE"] = "false";
     });
   });
 
@@ -240,13 +238,8 @@ describe("Agent-Zoo Connectors (TB-AGENTS)", () => {
       };
 
       // Execute on all stacks
-      for (const stack of [
-        "openai-assistants",
-        "langchain",
-        "langgraph",
-        "dspy",
-      ]) {
-        const result = await gateway.executePlan(stack, plan, context);
+      for (const stack of ["openai-assistants", "langchain", "langgraph", "dspy"]) {
+        const result = await gateway.executePlan(stack, plan as Plan, context);
         expect(result.success).toBe(true);
         expect(result.execution_time).toBeGreaterThan(0);
       }
@@ -308,9 +301,9 @@ describe("Agent-Zoo Connectors (TB-AGENTS)", () => {
         metadata: {},
       };
 
-      await expect(
-        gateway.executePlan("invalid-stack", plan, context),
-      ).rejects.toThrow("Unsupported agent stack: invalid-stack");
+      await expect(gateway.executePlan("invalid-stack", plan as Plan, context)).rejects.toThrow(
+        "Unsupported agent stack: invalid-stack",
+      );
     });
 
     it("should handle plan validation errors", async () => {
@@ -335,7 +328,7 @@ describe("Agent-Zoo Connectors (TB-AGENTS)", () => {
       // This should fail validation but not crash
       const result = await gateway.executePlan(
         "openai-assistants",
-        invalidPlan,
+        invalidPlan as unknown as Plan,
         context,
       );
       expect(result.success).toBe(false);
@@ -385,13 +378,8 @@ describe("Agent-Zoo Connectors (TB-AGENTS)", () => {
       const startTime = Date.now();
       const results = [];
 
-      for (const stack of [
-        "openai-assistants",
-        "langchain",
-        "langgraph",
-        "dspy",
-      ]) {
-        const result = await gateway.executePlan(stack, plan, context);
+      for (const stack of ["openai-assistants", "langchain", "langgraph", "dspy"]) {
+        const result = await gateway.executePlan(stack, plan as Plan, context);
         results.push({ stack, result });
       }
 

@@ -1,10 +1,5 @@
 import { BaseAgentRunner } from "../../../runtime/gateway/src/base-runner";
-import {
-  Plan,
-  ToolCall,
-  ToolResult,
-  AgentConfig,
-} from "../../../runtime/gateway/src/types";
+import { Plan, ToolCall, ToolResult, AgentConfig } from "../../contracts/types";
 
 /**
  * LangGraph Agent Runner
@@ -415,11 +410,8 @@ export class LangGraphRunner extends BaseAgentRunner {
         plan_complete: true,
         final_result: {
           success: state.steps.every((s: any) => s.status === "completed"),
-          steps_completed: state.steps.filter(
-            (s: any) => s.status === "completed",
-          ).length,
-          steps_failed: state.steps.filter((s: any) => s.status === "failed")
-            .length,
+          steps_completed: state.steps.filter((s: any) => s.status === "completed").length,
+          steps_failed: state.steps.filter((s: any) => s.status === "failed").length,
         },
       };
     };
@@ -429,8 +421,7 @@ export class LangGraphRunner extends BaseAgentRunner {
    * Conditional edge function
    */
   private shouldExecuteTools(state: any): string {
-    return state.plan_valid &&
-      state.steps.some((s: any) => s.type === "tool_call")
+    return state.plan_valid && state.steps.some((s: any) => s.type === "tool_call")
       ? "true"
       : "false";
   }

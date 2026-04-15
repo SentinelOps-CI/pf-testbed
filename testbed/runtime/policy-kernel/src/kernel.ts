@@ -159,9 +159,7 @@ export class PolicyKernel {
       PlanSchema.parse(plan);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        errors.push(
-          `Schema validation failed: ${error.errors.map((e) => e.message).join(", ")}`,
-        );
+        errors.push(`Schema validation failed: ${error.errors.map((e) => e.message).join(", ")}`);
       } else {
         errors.push(`Unknown validation error: ${error}`);
       }
@@ -187,9 +185,7 @@ export class PolicyKernel {
       if (plan.input_channels.file) {
         for (const file of plan.input_channels.file) {
           if (!file.quoted) {
-            errors.push(
-              `File channel ${file.sha256} must have quoted=true in strict mode`,
-            );
+            errors.push(`File channel ${file.sha256} must have quoted=true in strict mode`);
           }
         }
       }
@@ -219,15 +215,11 @@ export class PolicyKernel {
     }
 
     if (plan.constraints.dp_epsilon > 10) {
-      errors.push(
-        "Differential privacy epsilon exceeds maximum allowed value of 10",
-      );
+      errors.push("Differential privacy epsilon exceeds maximum allowed value of 10");
     }
 
     if (plan.constraints.dp_delta && plan.constraints.dp_delta > 1e-5) {
-      errors.push(
-        "Differential privacy delta exceeds maximum allowed value of 1e-5",
-      );
+      errors.push("Differential privacy delta exceeds maximum allowed value of 1e-5");
     }
 
     return {
@@ -248,26 +240,18 @@ export class PolicyKernel {
     // Check capability matching
     for (const requiredCap of step.caps_required) {
       if (!subject.caps.includes(requiredCap)) {
-        errors.push(
-          `Required capability ${requiredCap} not possessed by subject ${subject.id}`,
-        );
+        errors.push(`Required capability ${requiredCap} not possessed by subject ${subject.id}`);
       }
     }
 
     // Check receipt validation for retrieval steps
-    if (
-      step.tool === "retrieve" ||
-      step.tool === "data_query" ||
-      step.tool === "search"
-    ) {
+    if (step.tool === "retrieve" || step.tool === "data_query" || step.tool === "search") {
       if (!step.receipts || step.receipts.length === 0) {
         errors.push(`Retrieval step ${step.tool} must have access receipts`);
       } else {
         for (const receipt of step.receipts) {
           if (!this.validateReceipt(receipt)) {
-            errors.push(
-              `Invalid receipt ${receipt.receipt_id} for step ${step.tool}`,
-            );
+            errors.push(`Invalid receipt ${receipt.receipt_id} for step ${step.tool}`);
           }
         }
       }
@@ -276,9 +260,7 @@ export class PolicyKernel {
     // Check label flow
     for (const requiredLabel of step.labels_in) {
       if (!labels.includes(requiredLabel)) {
-        errors.push(
-          `Required input label ${requiredLabel} not present for step ${step.tool}`,
-        );
+        errors.push(`Required input label ${requiredLabel} not present for step ${step.tool}`);
       }
     }
 
@@ -362,18 +344,15 @@ export class PolicyKernel {
     topBlockedPatterns: Array<{ pattern: string; count: number }>;
   } {
     const totalPatterns = this.injectionCorpus.size;
-    const blockedAttempts = Array.from(
-      this.blockedInjectionAttempts.values(),
-    ).reduce((sum, count) => sum + count, 0);
+    const blockedAttempts = Array.from(this.blockedInjectionAttempts.values()).reduce(
+      (sum, count) => sum + count,
+      0,
+    );
 
     const blockedPercentage =
-      totalPatterns > 0
-        ? (this.blockedInjectionAttempts.size / totalPatterns) * 100
-        : 0;
+      totalPatterns > 0 ? (this.blockedInjectionAttempts.size / totalPatterns) * 100 : 0;
 
-    const topBlockedPatterns = Array.from(
-      this.blockedInjectionAttempts.entries(),
-    )
+    const topBlockedPatterns = Array.from(this.blockedInjectionAttempts.entries())
       .map(([pattern, count]) => ({ pattern, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
@@ -394,33 +373,22 @@ export class PolicyKernel {
     const violations: string[] = [];
 
     if (actualValues.budget && actualValues.budget > constraints.budget) {
-      violations.push(
-        `Budget violation: ${actualValues.budget} > ${constraints.budget}`,
-      );
+      violations.push(`Budget violation: ${actualValues.budget} > ${constraints.budget}`);
     }
 
-    if (
-      actualValues.dp_epsilon &&
-      actualValues.dp_epsilon > constraints.dp_epsilon
-    ) {
+    if (actualValues.dp_epsilon && actualValues.dp_epsilon > constraints.dp_epsilon) {
       violations.push(
         `DP epsilon violation: ${actualValues.dp_epsilon} > ${constraints.dp_epsilon}`,
       );
     }
 
-    if (
-      actualValues.latency &&
-      actualValues.latency > (constraints.latency_max || 300)
-    ) {
+    if (actualValues.latency && actualValues.latency > (constraints.latency_max || 300)) {
       violations.push(
         `Latency violation: ${actualValues.latency} > ${constraints.latency_max || 300}`,
       );
     }
 
-    if (
-      actualValues.tokens &&
-      actualValues.tokens > (constraints.max_tokens || 100000)
-    ) {
+    if (actualValues.tokens && actualValues.tokens > (constraints.max_tokens || 100000)) {
       violations.push(
         `Token violation: ${actualValues.tokens} > ${constraints.max_tokens || 100000}`,
       );
@@ -469,12 +437,7 @@ export class ToolBroker {
     labels: string[],
   ): { approved: boolean; reason?: string; receipt?: string } {
     // Validate step execution
-    const validation = this.kernel.validateStepExecution(
-      step,
-      subject,
-      receipts,
-      labels,
-    );
+    const validation = this.kernel.validateStepExecution(step, subject, receipts, labels);
 
     if (!validation.valid) {
       this.logExecution(tool, subject.id, false, validation.errors.join(", "));
@@ -540,12 +503,9 @@ export class ToolBroker {
     topBlockedReasons: Array<{ reason: string; count: number }>;
   } {
     const totalRequests = this.executionLog.length;
-    const approvedRequests = this.executionLog.filter(
-      (log) => log.approved,
-    ).length;
+    const approvedRequests = this.executionLog.filter((log) => log.approved).length;
     const blockedRequests = totalRequests - approvedRequests;
-    const approvalRate =
-      totalRequests > 0 ? (approvedRequests / totalRequests) * 100 : 0;
+    const approvalRate = totalRequests > 0 ? (approvedRequests / totalRequests) * 100 : 0;
 
     // Count blocked reasons
     const blockedReasons = new Map<string, number>();
@@ -570,12 +530,7 @@ export class ToolBroker {
     };
   }
 
-  private logExecution(
-    tool: string,
-    subject: string,
-    approved: boolean,
-    reason?: string,
-  ): void {
+  private logExecution(tool: string, subject: string, approved: boolean, reason?: string): void {
     this.executionLog.push({
       timestamp: new Date().toISOString(),
       tool,
@@ -585,11 +540,7 @@ export class ToolBroker {
     });
   }
 
-  private generateExecutionReceipt(
-    tool: string,
-    subject: string,
-    step: Step,
-  ): string {
+  private generateExecutionReceipt(tool: string, subject: string, step: Step): string {
     const receiptData = {
       tool,
       subject,
@@ -598,9 +549,7 @@ export class ToolBroker {
       nonce: Math.random().toString(36).substring(7),
     };
 
-    return createHash("sha256")
-      .update(JSON.stringify(receiptData))
-      .digest("hex");
+    return createHash("sha256").update(JSON.stringify(receiptData)).digest("hex");
   }
 }
 

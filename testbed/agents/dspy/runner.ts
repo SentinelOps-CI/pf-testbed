@@ -1,10 +1,5 @@
 import { BaseAgentRunner } from "../../../runtime/gateway/src/base-runner";
-import {
-  Plan,
-  ToolCall,
-  ToolResult,
-  AgentConfig,
-} from "../../../runtime/gateway/src/types";
+import { Plan, ToolCall, ToolResult, AgentConfig } from "../../contracts/types";
 
 /**
  * DSPy Agent Runner
@@ -422,9 +417,7 @@ export class DSPyRunner extends BaseAgentRunner {
       if (!planData.id) planData.id = this.generateId();
       if (!planData.timestamp) planData.timestamp = new Date().toISOString();
       if (!planData.expiresAt)
-        planData.expiresAt = new Date(
-          Date.now() + 24 * 60 * 60 * 1000,
-        ).toISOString();
+        planData.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
       // Validate and normalize steps
       if (planData.steps && Array.isArray(planData.steps)) {
@@ -447,11 +440,9 @@ export class DSPyRunner extends BaseAgentRunner {
       if (!planData.metadata) planData.metadata = {};
       if (!planData.metadata.version) planData.metadata.version = "1.0.0";
       if (!planData.metadata.agent) planData.metadata.agent = this.name;
-      if (!planData.metadata.model)
-        planData.metadata.model = this.config?.model || "gpt-4";
+      if (!planData.metadata.model) planData.metadata.model = this.config?.model || "gpt-4";
       if (!planData.metadata.confidence) planData.metadata.confidence = 0.8;
-      if (!planData.metadata.risk_level)
-        planData.metadata.risk_level = "medium";
+      if (!planData.metadata.risk_level) planData.metadata.risk_level = "medium";
       if (!planData.metadata.tags) planData.metadata.tags = [];
       if (!planData.metadata.context) planData.metadata.context = originalJson;
 

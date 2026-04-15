@@ -14,10 +14,18 @@ export interface Plan {
 export interface PlanStep {
   id: string;
   type: "tool_call" | "decision" | "retrieval" | "verification";
+  operation?: "read" | "write" | "delete" | "admin" | "system";
   tool?: string;
   parameters?: Record<string, any>;
   capability?: string;
   receipt?: string;
+  content?: string;
+  labels?: string[];
+  source?: string;
+  target?: string;
+  scope?: string;
+  compliance_requirements?: string[];
+  audit_required?: boolean;
   status: "pending" | "executing" | "completed" | "failed";
   result?: any;
   error?: string;
@@ -152,6 +160,10 @@ export interface ExecutionContext {
   session_id: string;
   request_id: string;
   timestamp: string;
+  user_risk_profile?: "low" | "medium" | "high" | "critical";
+  tenant_risk_policy?: "standard" | "strict" | "critical";
+  user_capabilities?: string[];
+  user_labels?: string[];
   metadata: Record<string, any>;
 }
 
@@ -263,7 +275,7 @@ export interface ABACResult {
   tenant: string;
   labels: string[];
   data: Record<string, any>;
-  access_level: 'read' | 'write' | 'admin';
+  access_level: "read" | "write" | "admin";
 }
 
 export interface ABACPolicy {
@@ -276,14 +288,14 @@ export interface ABACPolicy {
 export interface ABACRule {
   id: string;
   condition: string;
-  effect: 'allow' | 'deny';
+  effect: "allow" | "deny";
   priority: number;
 }
 
 export interface TenantContext {
   tenant_id: string;
   allowed_roles: string[];
-  data_access_level: 'isolated' | 'shared' | 'public';
+  data_access_level: "isolated" | "shared" | "public";
 }
 
 export interface SubjectContext {

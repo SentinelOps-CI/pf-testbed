@@ -104,12 +104,7 @@ export class TestbedMetrics {
   }
 
   // SLO violation tracking
-  recordSloViolation(
-    tenant: string,
-    journey: string,
-    sloType: string,
-    severity: string,
-  ): void {
+  recordSloViolation(tenant: string, journey: string, sloType: string, severity: string): void {
     this.sloViolationsTotal.inc({
       tenant,
       journey,
@@ -119,12 +114,7 @@ export class TestbedMetrics {
   }
 
   // Request duration tracking
-  startRequestTimer(
-    tenant: string,
-    journey: string,
-    endpoint: string,
-    method: string,
-  ): () => void {
+  startRequestTimer(tenant: string, journey: string, endpoint: string, method: string): () => void {
     const timer = this.requestDurationSeconds.startTimer({
       tenant,
       journey,
@@ -135,11 +125,7 @@ export class TestbedMetrics {
   }
 
   // Theorem verification tracking
-  updateTheoremVerificationRate(
-    tenant: string,
-    journey: string,
-    rate: number,
-  ): void {
+  updateTheoremVerificationRate(tenant: string, journey: string, rate: number): void {
     this.theoremVerificationRate.set({ tenant, journey }, rate);
   }
 
@@ -167,12 +153,7 @@ export class TestbedMetrics {
   }
 
   // Certificate tracking
-  updateCertificateStatus(
-    tenant: string,
-    status: string,
-    type: string,
-    count: number,
-  ): void {
+  updateCertificateStatus(tenant: string, status: string, type: string, count: number): void {
     this.certificateStatusTotal.set({ tenant, status, type }, count);
   }
 
@@ -190,22 +171,12 @@ export class TestbedMetrics {
   }
 
   // Error tracking
-  recordError(
-    tenant: string,
-    journey: string,
-    errorType: string,
-    severity: string,
-  ): void {
+  recordError(tenant: string, journey: string, errorType: string, severity: string): void {
     this.errorsTotal.inc({ tenant, journey, error_type: errorType, severity });
   }
 
   // Request tracking
-  recordRequest(
-    tenant: string,
-    journey: string,
-    method: string,
-    status: string,
-  ): void {
+  recordRequest(tenant: string, journey: string, method: string, status: string): void {
     this.requestsTotal.inc({ tenant, journey, method, status });
   }
 

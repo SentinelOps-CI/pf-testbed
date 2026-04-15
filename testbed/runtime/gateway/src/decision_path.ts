@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import { Plan, PlanStep, AccessReceipt, ExecutionContext } from "./types";
+import { Plan, PlanStep, ExecutionContext } from "./types";
 
 // Decision Path Flow Implementation
 // Implements the paper's end-to-end flow: observe → retrieve(receipt) → plan → kernel → tool broker → egress(cert) → safety case
@@ -36,7 +36,7 @@ export interface DecisionPathTrace {
   start_time: string;
   end_time?: string;
   total_duration_ms?: number;
-  final_status: "completed" | "failed" | "aborted";
+  final_status: "pending" | "completed" | "failed" | "aborted";
   certificates: string[];
   receipts: string[];
   safety_cases: string[];
@@ -136,10 +136,7 @@ export class DecisionPathEngine {
   /**
    * Execute the complete decision path flow
    */
-  async executeDecisionPath(
-    plan: Plan,
-    context: ExecutionContext,
-  ): Promise<DecisionPathTrace> {
+  async executeDecisionPath(plan: Plan, context: ExecutionContext): Promise<DecisionPathTrace> {
     const trace = this.startTrace(plan, context);
 
     try {
@@ -148,7 +145,7 @@ export class DecisionPathEngine {
 
       // Phase 2: Retrieve (with receipts)
       const receipts = await this.executePhase(trace, "retrieve", plan, context);
-      trace.receipts = receipts.map(r => r.id);
+      trace.receipts = receipts.map((r) => r.id);
 
       // Phase 3: Plan
       await this.executePhase(trace, "plan", plan, context);
@@ -161,16 +158,15 @@ export class DecisionPathEngine {
 
       // Phase 6: Egress filtering (with certificates)
       const certs = await this.executePhase(trace, "egress", plan, context);
-      trace.certificates = certs.map(c => c.id);
+      trace.certificates = certs.map((c) => c.id);
 
       // Phase 7: Safety case generation
       const safetyCases = await this.executePhase(trace, "safety_case", plan, context);
-      trace.safety_cases = safetyCases.map(s => s.id);
+      trace.safety_cases = safetyCases.map((s) => s.id);
 
       trace.final_status = "completed";
       trace.end_time = new Date().toISOString();
       trace.total_duration_ms = Date.now() - new Date(trace.start_time).getTime();
-
     } catch (error) {
       trace.final_status = "failed";
       trace.end_time = new Date().toISOString();
@@ -235,7 +231,6 @@ export class DecisionPathEngine {
       step.duration_ms = Date.now() - start_time;
 
       return result;
-
     } catch (error) {
       step.status = "failed";
       step.error = error instanceof Error ? error.message : "Unknown error";
@@ -262,12 +257,15 @@ export class DecisionPathEngine {
   /**
    * Phase 2: Retrieve - Execute retrievals with signed receipts
    */
-  private async executeRetrievePhase(plan: Plan, context: ExecutionContext): Promise<RetrievalReceipt[]> {
+  private async executeRetrievePhase(
+    plan: Plan,
+    context: ExecutionContext,
+  ): Promise<RetrievalReceipt[]> {
     const receipts: RetrievalReceipt[] = [];
 
     // Find retrieval steps in plan
-    const retrievalSteps = plan.steps.filter(s => s.type === "retrieval");
-    
+    const retrievalSteps = plan.steps.filter((s) => s.type === "retrieval");
+
     for (const step of retrievalSteps) {
       const receipt: RetrievalReceipt = {
         id: this.generateReceiptId(),
@@ -294,7 +292,7 @@ export class DecisionPathEngine {
   /**
    * Phase 3: Plan - Validate and optimize plan
    */
-  private async executePlanPhase(plan: Plan, context: ExecutionContext): Promise<any[]> {
+  private async executePlanPhase(_plan: Plan, _context: ExecutionContext): Promise<any[]> {
     // Implement plan validation per paper
     const planValidation = {
       valid: true,
@@ -309,7 +307,7 @@ export class DecisionPathEngine {
   /**
    * Phase 4: Kernel - Policy kernel validation
    */
-  private async executeKernelPhase(plan: Plan, context: ExecutionContext): Promise<any[]> {
+  private async executeKernelPhase(plan: Plan, _context: ExecutionContext): Promise<any[]> {
     // Implement kernel validation per paper
     const kernelValidation = {
       policy_compliance: true,
@@ -324,7 +322,7 @@ export class DecisionPathEngine {
   /**
    * Phase 5: Tool broker - Execute tools with mediation
    */
-  private async executeToolBrokerPhase(plan: Plan, context: ExecutionContext): Promise<any[]> {
+  private async executeToolBrokerPhase(_plan: Plan, _context: ExecutionContext): Promise<any[]> {
     // Implement tool broker execution per paper
     const toolExecution = {
       tools_executed: [],
@@ -339,7 +337,10 @@ export class DecisionPathEngine {
   /**
    * Phase 6: Egress - Content filtering and certification
    */
-  private async executeEgressPhase(plan: Plan, context: ExecutionContext): Promise<EgressCertificate[]> {
+  private async executeEgressPhase(
+    plan: Plan,
+    _context: ExecutionContext,
+  ): Promise<EgressCertificate[]> {
     const certificates: EgressCertificate[] = [];
 
     // Generate egress certificate per paper
@@ -373,7 +374,10 @@ export class DecisionPathEngine {
   /**
    * Phase 7: Safety case - Generate comprehensive safety evidence
    */
-  private async executeSafetyCasePhase(plan: Plan, context: ExecutionContext): Promise<SafetyCase[]> {
+  private async executeSafetyCasePhase(
+    plan: Plan,
+    context: ExecutionContext,
+  ): Promise<SafetyCase[]> {
     const safetyCases: SafetyCase[] = [];
 
     // Generate safety case per paper
@@ -465,15 +469,15 @@ export class DecisionPathEngine {
   }
 
   private hashReceipts(plan: Plan): string {
-    const receipts = Array.from(this.retrievalReceipts.values())
-      .filter(r => r.plan_id === plan.id);
+    const receipts = Array.from(this.retrievalReceipts.values()).filter(
+      (r) => r.plan_id === plan.id,
+    );
     const receiptsStr = JSON.stringify(receipts);
     return createHash("sha256").update(receiptsStr).digest("hex");
   }
 
   private hashCertificates(plan: Plan): string {
-    const certs = Array.from(this.egressCertificates.values())
-      .filter(c => c.plan_id === plan.id);
+    const certs = Array.from(this.egressCertificates.values()).filter((c) => c.plan_id === plan.id);
     const certsStr = JSON.stringify(certs);
     return createHash("sha256").update(certsStr).digest("hex");
   }
@@ -503,7 +507,7 @@ export class DecisionPathEngine {
     return `shard_${tenant}_${step.id}`;
   }
 
-  private determineLabels(step: PlanStep): string[] {
+  private determineLabels(_step: PlanStep): string[] {
     // Implement label determination per paper
     return ["public", "internal"];
   }

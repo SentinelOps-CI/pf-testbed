@@ -1,5 +1,5 @@
 import { BaseToolEmulator, ToolEmulatorConfig } from "../base/emulator";
-import { ToolCall } from "../../../runtime/gateway/src/types";
+import { ToolCall } from "../../contracts/types";
 
 export interface StripePaymentIntent {
   id: string;
@@ -96,10 +96,7 @@ export class StripeEmulator extends BaseToolEmulator {
         case "stripe.retrieve_payment_intent":
           return await stripe.paymentIntents.retrieve(call.parameters.id);
         case "stripe.confirm_payment_intent":
-          return await stripe.paymentIntents.confirm(
-            call.parameters.id,
-            call.parameters,
-          );
+          return await stripe.paymentIntents.confirm(call.parameters.id, call.parameters);
         case "stripe.create_customer":
           return await stripe.customers.create(call.parameters);
         case "stripe.retrieve_customer":
@@ -114,10 +111,7 @@ export class StripeEmulator extends BaseToolEmulator {
 
   protected async executeHybrid(call: ToolCall): Promise<any> {
     // Hybrid mode: use real for payment operations, mock for customer operations
-    const realOperations = [
-      "stripe.create_payment_intent",
-      "stripe.confirm_payment_intent",
-    ];
+    const realOperations = ["stripe.create_payment_intent", "stripe.confirm_payment_intent"];
 
     if (realOperations.includes(call.tool) && this.realApiKey) {
       return this.executeReal(call);
@@ -127,12 +121,7 @@ export class StripeEmulator extends BaseToolEmulator {
   }
 
   private async createPaymentIntentMock(call: ToolCall): Promise<any> {
-    const {
-      amount,
-      currency = "usd",
-      customer,
-      metadata = {},
-    } = call.parameters;
+    const { amount, currency = "usd", customer, metadata = {} } = call.parameters;
 
     if (!amount || amount <= 0) {
       throw new Error("Amount must be positive");
@@ -264,8 +253,7 @@ export class StripeEmulator extends BaseToolEmulator {
 
     // Handle Stripe-specific configuration
     if (config.mode === "real" || config.mode === "hybrid") {
-      const apiKey =
-        process.env.STRIPE_TEST_KEY || process.env.STRIPE_SECRET_KEY;
+      const apiKey = process.env.STRIPE_TEST_KEY || process.env.STRIPE_SECRET_KEY;
       if (!apiKey) {
         throw new Error("Stripe API key required for real mode");
       }

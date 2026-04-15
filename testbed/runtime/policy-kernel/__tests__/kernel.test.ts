@@ -143,9 +143,7 @@ describe("Policy Kernel", () => {
 
       const result = kernel.validatePlan(invalidPlan);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        "Operation unauthorized_tool not allowed",
-      );
+      expect(result.errors).toContain("Operation unauthorized_tool not allowed");
     });
   });
 
@@ -199,11 +197,7 @@ describe("Policy Kernel", () => {
     });
 
     it("should block command injection attempts", () => {
-      const commandInjectionAttempts = [
-        "; rm -rf /",
-        "& cat /etc/passwd",
-        "| whoami",
-      ];
+      const commandInjectionAttempts = ["; rm -rf /", "& cat /etc/passwd", "| whoami"];
 
       commandInjectionAttempts.forEach((attempt) => {
         const result = kernel.detectInjection(attempt);
@@ -249,9 +243,7 @@ describe("Policy Kernel", () => {
 
       const result = kernel.validateLabelFlow(invalidSteps);
       expect(result.valid).toBe(false);
-      expect(result.errors).toContain(
-        "Input label undefined_label not defined in previous steps",
-      );
+      expect(result.errors).toContain("Input label undefined_label not defined in previous steps");
     });
   });
 

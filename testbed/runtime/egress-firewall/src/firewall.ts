@@ -1,6 +1,65 @@
-import { createHash } from "crypto";
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  sign as cryptoSign,
+  verify as cryptoVerify,
+  type KeyObject,
+} from "crypto";
 import { z } from "zod";
-import * as ed25519 from "@noble/ed25519";
+
+/** PKCS#8 DER prefix for a raw 32-byte Ed25519 seed (RFC 8410 / OpenSSL layout). */
+const ED25519_SEED_PKCS8_PREFIX = Buffer.from("302e020100300506032b657004220420", "hex");
+
+function ed25519KeyPairFromSeed(seed32: Buffer): { privateKey: KeyObject; publicKey: KeyObject } {
+  if (seed32.length !== 32) {
+    throw new Error("Ed25519 private key seed must be 32 bytes");
+  }
+  const der = Buffer.concat([ED25519_SEED_PKCS8_PREFIX, seed32]);
+  const privateKey = createPrivateKey({ key: der, format: "der", type: "pkcs8" });
+  return { privateKey, publicKey: createPublicKey(privateKey) };
+}
+
+function ed25519PublicKeyRawHex(publicKey: KeyObject): string {
+  const jwk = publicKey.export({ format: "jwk" }) as { x?: string };
+  if (!jwk.x) {
+    throw new Error("Ed25519 public key JWK export missing x");
+  }
+  const pad = (4 - (jwk.x.length % 4)) % 4;
+  const b64 = jwk.x.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat(pad);
+  return Buffer.from(b64, "base64").toString("hex");
+}
+
+function levenshteinDistance(a: string, b: string): number {
+  const m = a.length;
+  const n = b.length;
+  if (m === 0) {
+    return n;
+  }
+  if (n === 0) {
+    return m;
+  }
+  let prev = Array.from({ length: n + 1 }, (_, j) => j);
+  for (let i = 1; i <= m; i++) {
+    const cur = new Array<number>(n + 1);
+    cur[0] = i;
+    const ai = a[i - 1]!;
+    for (let j = 1; j <= n; j++) {
+      const cost = ai === b[j - 1] ? 0 : 1;
+      cur[j] = Math.min(prev[j]! + 1, cur[j - 1]! + 1, prev[j - 1]! + cost);
+    }
+    prev = cur;
+  }
+  return prev[n]!;
+}
+
+function normalizedNearDuplicateScore(prev: string, curr: string): number {
+  const maxLen = 800;
+  const p = prev.length > maxLen ? prev.slice(0, maxLen) : prev;
+  const c = curr.length > maxLen ? curr.slice(0, maxLen) : curr;
+  const d = levenshteinDistance(p, c);
+  return 1 - d / Math.max(p.length, c.length, 1);
+}
 
 // Egress Certificate Schema
 export const EgressCertificateSchema = z.object({
@@ -48,109 +107,36 @@ export interface SensitivePattern {
   replacement?: string;
 }
 
-// Aho-Corasick implementation for pattern matching
+/** Runs registered RegExp patterns over text (true multi-pattern regex scan). */
 class AhoCorasick {
-  private root: TrieNode;
-  private patterns: SensitivePattern[];
+  private readonly patterns: SensitivePattern[];
 
   constructor(patterns: SensitivePattern[]) {
     this.patterns = patterns;
-    this.root = new TrieNode();
-    this.buildTrie();
-    this.buildFailureLinks();
   }
 
-  private buildTrie(): void {
-    for (const pattern of this.patterns) {
-      let current = this.root;
-      for (const char of pattern.pattern.source) {
-        if (!current.children.has(char)) {
-          current.children.set(char, new TrieNode());
-        }
-        current = current.children.get(char)!;
-      }
-      current.patterns.push(pattern);
-    }
-  }
-
-  private buildFailureLinks(): void {
-    const queue: TrieNode[] = [];
-
-    // Initialize failure links for depth 1
-    for (const [char, child] of this.root.children) {
-      child.failure = this.root;
-      queue.push(child);
-    }
-
-    // Build failure links for deeper levels
-    while (queue.length > 0) {
-      const current = queue.shift()!;
-
-      for (const [char, child] of current.children) {
-        let failure = current.failure;
-
-        while (failure && !failure.children.has(char)) {
-          failure = failure.failure;
-        }
-
-        child.failure = failure
-          ? failure.children.get(char) || this.root
-          : this.root;
-        queue.push(child);
-      }
-    }
-  }
-
-  search(
-    text: string,
-  ): Array<{ pattern: SensitivePattern; start: number; end: number }> {
+  search(text: string): Array<{ pattern: SensitivePattern; start: number; end: number }> {
     const matches: Array<{
       pattern: SensitivePattern;
       start: number;
       end: number;
     }> = [];
-    let current = this.root;
 
-    for (let i = 0; i < text.length; i++) {
-      const char = text[i];
-
-      // Follow failure links until we find a match
-      while (current && !current.children.has(char)) {
-        current = current.failure!;
-      }
-
-      if (!current) {
-        current = this.root;
-        continue;
-      }
-
-      current = current.children.get(char)!;
-
-      // Check for patterns at current node
-      for (const pattern of current.patterns) {
-        const start = i - pattern.pattern.source.length + 1;
-        matches.push({ pattern, start, end: i + 1 });
-      }
-
-      // Follow failure links to find additional matches
-      let failure = current.failure;
-      while (failure) {
-        for (const pattern of failure.patterns) {
-          const start = i - pattern.pattern.source.length + 1;
-          matches.push({ pattern, start, end: i + 1 });
+    for (const sp of this.patterns) {
+      const re = sp.pattern;
+      const flags = re.flags.includes("g") ? re.flags : `${re.flags}g`;
+      const globalRe = new RegExp(re.source, flags);
+      let m: RegExpExecArray | null;
+      while ((m = globalRe.exec(text)) !== null) {
+        matches.push({ pattern: sp, start: m.index, end: m.index + m[0].length });
+        if (m[0].length === 0) {
+          globalRe.lastIndex++;
         }
-        failure = failure.failure;
       }
     }
 
     return matches;
   }
-}
-
-class TrieNode {
-  children: Map<string, TrieNode> = new Map();
-  patterns: SensitivePattern[] = [];
-  failure: TrieNode | null = null;
 }
 
 // SimHash implementation for near-duplicate detection
@@ -163,7 +149,7 @@ class SimHash {
 
     // Convert hash to bit array
     for (let i = 0; i < hash.length && i * 8 < this.hashBits; i++) {
-      const byte = hash[i];
+      const byte = hash[i]!;
       for (let j = 0; j < 8 && i * 8 + j < this.hashBits; j++) {
         bits[i * 8 + j] = (byte >> j) & 1;
       }
@@ -225,7 +211,10 @@ class MinHash {
   }
 
   compute(text: string): number[] {
-    const words = text.toLowerCase().split(/\s+/);
+    let words = text.toLowerCase().split(/\s+/);
+    if (words.length > 400) {
+      words = words.slice(0, 400);
+    }
     const signatures: number[] = [];
 
     for (const hashFn of this.hashFunctions) {
@@ -306,17 +295,13 @@ class FormatAnalyzer {
   private identifyDataTypes(text: string): string[] {
     const types: string[] = [];
 
-    if (/\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b/.test(text))
-      types.push("credit_card");
+    if (/\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b/.test(text)) types.push("credit_card");
     if (/\b\d{3}-\d{2}-\d{4}\b/.test(text)) types.push("ssn");
-    if (/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/.test(text))
-      types.push("email");
-    if (/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/.test(text))
-      types.push("ip_address");
+    if (/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/.test(text)) types.push("email");
+    if (/\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b/.test(text)) types.push("ip_address");
     if (/\b[A-Za-z0-9+/]{20,}={0,2}\b/.test(text)) types.push("base64");
     if (/\b[A-Fa-f0-9]{32,}\b/.test(text)) types.push("hex_string");
-    if (/\b(api_key|password|secret|token)\s*[:=]\s*\S+/i.test(text))
-      types.push("credential");
+    if (/\b(api_key|password|secret|token)\s*[:=]\s*\S+/i.test(text)) types.push("credential");
 
     return types;
   }
@@ -324,15 +309,11 @@ class FormatAnalyzer {
   private findSuspiciousPatterns(text: string): string[] {
     const patterns: string[] = [];
 
-    if (text.includes("DROP TABLE") || text.includes("INSERT INTO"))
-      patterns.push("sql_injection");
-    if (text.includes("<script>") || text.includes("javascript:"))
-      patterns.push("xss");
-    if (text.includes("rm -rf") || text.includes("cat /etc"))
-      patterns.push("command_injection");
+    if (text.includes("DROP TABLE") || text.includes("INSERT INTO")) patterns.push("sql_injection");
+    if (text.includes("<script>") || text.includes("javascript:")) patterns.push("xss");
+    if (text.includes("rm -rf") || text.includes("cat /etc")) patterns.push("command_injection");
     if (text.includes("../../../")) patterns.push("path_traversal");
-    if (text.includes("{{") || text.includes("${"))
-      patterns.push("template_injection");
+    if (text.includes("{{") || text.includes("${")) patterns.push("template_injection");
 
     return patterns;
   }
@@ -341,11 +322,9 @@ class FormatAnalyzer {
 // LLM Analysis for ambiguous cases
 class LLMAnalyzer {
   private readonly provider: string;
-  private readonly apiKey?: string;
 
-  constructor(provider: string = "mock", apiKey?: string) {
+  constructor(provider: string = "mock", _apiKey?: string) {
     this.provider = provider;
-    this.apiKey = apiKey;
   }
 
   async analyze(
@@ -368,7 +347,7 @@ class LLMAnalyzer {
 
   private mockAnalysis(
     content: string,
-    context: string,
+    _context: string,
   ): {
     isSensitive: boolean;
     confidence: number;
@@ -378,7 +357,13 @@ class LLMAnalyzer {
     const lowerContent = content.toLowerCase();
 
     // Simple heuristics for demonstration
-    if (lowerContent.includes("password") || lowerContent.includes("secret")) {
+    if (
+      lowerContent.includes("password") ||
+      lowerContent.includes("secret") ||
+      /\b(?:api|access)\s+key\b/i.test(content) ||
+      /\bpwd\b/i.test(content) ||
+      /\bpass\s*:/i.test(content)
+    ) {
       return {
         isSensitive: true,
         confidence: 0.9,
@@ -387,10 +372,7 @@ class LLMAnalyzer {
       };
     }
 
-    if (
-      lowerContent.includes("ssn") ||
-      lowerContent.includes("social security")
-    ) {
+    if (lowerContent.includes("ssn") || lowerContent.includes("social security")) {
       return {
         isSensitive: true,
         confidence: 0.95,
@@ -399,10 +381,7 @@ class LLMAnalyzer {
       };
     }
 
-    if (
-      lowerContent.includes("credit card") ||
-      lowerContent.includes("cc number")
-    ) {
+    if (lowerContent.includes("credit card") || lowerContent.includes("cc number")) {
       return {
         isSensitive: true,
         confidence: 0.9,
@@ -429,9 +408,11 @@ export class EgressFirewall {
   private readonly minHash: MinHash;
   private readonly formatAnalyzer: FormatAnalyzer;
   private readonly llmAnalyzer: LLMAnalyzer;
-  private readonly privateKey: Uint8Array;
-  private readonly publicKey: Uint8Array;
+  private readonly privateKey: KeyObject;
+  private readonly publicKey: KeyObject;
   private readonly knownContentHashes: Set<string> = new Set();
+  private readonly recentNormalized: string[] = [];
+  private readonly maxRecentNormalized = 300;
 
   constructor(config: {
     patterns?: SensitivePattern[];
@@ -446,13 +427,12 @@ export class EgressFirewall {
     this.simHash = new SimHash();
     this.minHash = new MinHash();
     this.formatAnalyzer = new FormatAnalyzer();
-    this.llmAnalyzer = new LLMAnalyzer(
-      config.llmProvider || "mock",
-      config.llmApiKey,
-    );
+    this.llmAnalyzer = new LLMAnalyzer(config.llmProvider || "mock", config.llmApiKey);
 
-    this.privateKey = Buffer.from(config.privateKeyHex, "hex");
-    this.publicKey = ed25519.getPublicKey(this.privateKey);
+    const seed = Buffer.from(config.privateKeyHex, "hex");
+    const pair = ed25519KeyPairFromSeed(seed);
+    this.privateKey = pair.privateKey;
+    this.publicKey = pair.publicKey;
   }
 
   private getDefaultPatterns(): SensitivePattern[] {
@@ -480,8 +460,7 @@ export class EgressFirewall {
       },
       {
         name: "api_key",
-        pattern:
-          /\b(api_key|api_key_id|access_key)\s*[:=]\s*[A-Za-z0-9+/]{20,}\b/i,
+        pattern: /\b(api_key|api_key_id|access_key)\s*[:=]\s*[A-Za-z0-9+/]{20,}\b/i,
         category: "secret",
         confidence: 0.9,
         replacement: "[API_KEY_MASKED]",
@@ -489,6 +468,62 @@ export class EgressFirewall {
       {
         name: "password",
         pattern: /\b(password|passwd|pwd)\s*[:=]\s*\S+\b/i,
+        category: "secret",
+        confidence: 0.9,
+        replacement: "[PASSWORD_MASKED]",
+      },
+      {
+        name: "credit_card_dense",
+        pattern: /\b\d{16}\b/,
+        category: "pii",
+        confidence: 0.9,
+        replacement: "[CREDIT_CARD_MASKED]",
+      },
+      {
+        name: "credit_card_spaced_digits",
+        pattern: /(?:\d[-\s]){15}\d/,
+        category: "pii",
+        confidence: 0.9,
+        replacement: "[CREDIT_CARD_MASKED]",
+      },
+      {
+        name: "ssn_dots",
+        pattern: /\b\d{3}\.\d{2}\.\d{4}\b/,
+        category: "pii",
+        confidence: 0.95,
+        replacement: "[SSN_MASKED]",
+      },
+      {
+        name: "tax_id_9",
+        pattern: /\b\d{9}\b/,
+        category: "pii",
+        confidence: 0.9,
+        replacement: "[TAX_ID_MASKED]",
+      },
+      {
+        name: "sk_key",
+        pattern: /\bsk-[A-Za-z0-9]{20,}\b/,
+        category: "secret",
+        confidence: 0.9,
+        replacement: "[API_KEY_MASKED]",
+      },
+      {
+        name: "aws_key",
+        pattern: /\bAKIA[A-Z0-9]{16}\b/,
+        category: "secret",
+        confidence: 0.9,
+        replacement: "[API_KEY_MASKED]",
+      },
+      {
+        name: "ghp_key",
+        pattern: /\bghp_[A-Za-z0-9]{20,}\b/,
+        category: "secret",
+        confidence: 0.9,
+        replacement: "[API_KEY_MASKED]",
+      },
+      {
+        name: "password_label",
+        pattern: /\b(?:Password|PWD|Pass)\s*:\s*\S+/i,
         category: "secret",
         confidence: 0.9,
         replacement: "[PASSWORD_MASKED]",
@@ -507,16 +542,14 @@ export class EgressFirewall {
       const patternMatches = this.ahoCorasick.search(validatedRequest.content);
 
       // Stage 2: Format and entropy analysis
-      const formatAnalysis = this.formatAnalyzer.analyze(
-        validatedRequest.content,
-      );
+      const formatAnalysis = this.formatAnalyzer.analyze(validatedRequest.content);
 
       // Stage 3: SimHash for near-duplicate detection
       const contentHash = this.simHash.compute(validatedRequest.content);
-      const isNearDupe = this.detectNearDuplicates(contentHash);
+      const isNearDupe = this.detectNearDuplicates(validatedRequest.content, contentHash);
 
       // Stage 4: MinHash for similarity analysis (optional)
-      const minHashSignature = this.minHash.compute(validatedRequest.content);
+      void this.minHash.compute(validatedRequest.content);
 
       // Stage 5: LLM analysis for ambiguous cases
       const llmAnalysis = await this.llmAnalyzer.analyze(
@@ -544,10 +577,7 @@ export class EgressFirewall {
       });
 
       // Process content (mask sensitive data if needed)
-      const processedContent = this.processContent(
-        validatedRequest.content,
-        patternMatches,
-      );
+      const processedContent = this.processContent(validatedRequest.content, patternMatches);
 
       const processingTime = Date.now() - startTime;
 
@@ -577,15 +607,24 @@ export class EgressFirewall {
     }
   }
 
-  private detectNearDuplicates(contentHash: string): boolean {
-    // Check against known content hashes
+  private detectNearDuplicates(content: string, contentHash: string): boolean {
+    const norm = content.toLowerCase().replace(/\s+/g, " ").trim();
+    for (const prev of this.recentNormalized) {
+      if (normalizedNearDuplicateScore(prev, norm) >= 0.94) {
+        return true;
+      }
+    }
+
     for (const knownHash of this.knownContentHashes) {
       if (this.simHash.similarity(contentHash, knownHash) > 0.8) {
         return true;
       }
     }
 
-    // Add current hash to known hashes
+    this.recentNormalized.push(norm);
+    if (this.recentNormalized.length > this.maxRecentNormalized) {
+      this.recentNormalized.shift();
+    }
     this.knownContentHashes.add(contentHash);
     return false;
   }
@@ -602,25 +641,20 @@ export class EgressFirewall {
   ): boolean {
     // Block if critical PII or secrets detected
     const hasCriticalPII = patternMatches.some(
-      (match) =>
-        match.pattern.category === "pii" && match.pattern.confidence > 0.9,
+      (match) => match.pattern.category === "pii" && match.pattern.confidence >= 0.9,
     );
 
     const hasSecrets = patternMatches.some(
-      (match) =>
-        match.pattern.category === "secret" && match.pattern.confidence > 0.9,
+      (match) => match.pattern.category === "secret" && match.pattern.confidence >= 0.9,
     );
 
     // Block if LLM analysis indicates sensitive content
-    const llmSensitive =
-      llmAnalysis.isSensitive && llmAnalysis.confidence > 0.8;
+    const llmSensitive = llmAnalysis.isSensitive && llmAnalysis.confidence > 0.8;
 
     // Block if suspicious patterns detected
     const hasSuspiciousPatterns = formatAnalysis.suspiciousPatterns.length > 0;
 
-    return (
-      hasCriticalPII || hasSecrets || llmSensitive || hasSuspiciousPatterns
-    );
+    return hasCriticalPII || hasSecrets || llmSensitive || hasSuspiciousPatterns || isNearDupe;
   }
 
   private processContent(
@@ -657,40 +691,32 @@ export class EgressFirewall {
     shouldBlock: boolean;
     request: ContentRequest;
   }): Promise<EgressCertificate> {
-    const {
-      patternMatches,
-      formatAnalysis,
-      llmAnalysis,
-      isNearDupe,
-      contentHash,
-      shouldBlock,
-      request,
-    } = data;
+    const { patternMatches, isNearDupe, shouldBlock, request, llmAnalysis } = data;
 
     // Determine PII status
     let pii: "detected" | "none" | "masked" = "none";
     if (patternMatches.some((m) => m.pattern.category === "pii")) {
       pii = shouldBlock ? "masked" : "detected";
+    } else if (shouldBlock && llmAnalysis.category === "pii") {
+      pii = "masked";
     }
 
     // Determine secrets status
     let secrets: "detected" | "none" | "masked" = "none";
     if (patternMatches.some((m) => m.pattern.category === "secret")) {
       secrets = shouldBlock ? "masked" : "detected";
+    } else if (shouldBlock && llmAnalysis.category === "credential") {
+      secrets = "masked";
     }
 
     // Determine near-duplicate status
     const near_dupe: "detected" | "none" = isNearDupe ? "detected" : "none";
 
     // Determine non-interference status
-    const non_interference: "passed" | "failed" = shouldBlock
-      ? "failed"
-      : "passed";
+    const non_interference: "passed" | "failed" = shouldBlock ? "failed" : "passed";
 
     // Generate policy hash
-    const policyHash = createHash("sha256")
-      .update(JSON.stringify(this.policies))
-      .digest("hex");
+    const policyHash = createHash("sha256").update(JSON.stringify(this.policies)).digest("hex");
 
     // Generate text hash
     const textHash = createHash("sha256").update(request.content).digest("hex");
@@ -711,12 +737,9 @@ export class EgressFirewall {
     };
 
     // Sign the certificate
-    const dataString = JSON.stringify(
-      certificateData,
-      Object.keys(certificateData).sort(),
-    );
+    const dataString = JSON.stringify(certificateData, Object.keys(certificateData).sort());
     const message = Buffer.from(dataString, "utf8");
-    const signature = await ed25519.sign(message, this.privateKey);
+    const signature = cryptoSign(null, message, this.privateKey);
     const sig = Buffer.from(signature).toString("hex");
 
     return {
@@ -726,12 +749,10 @@ export class EgressFirewall {
   }
 
   private async generateErrorCertificate(
-    error: string,
+    _error: string,
     request: ContentRequest,
   ): Promise<EgressCertificate> {
-    const policyHash = createHash("sha256")
-      .update(JSON.stringify(this.policies))
-      .digest("hex");
+    const policyHash = createHash("sha256").update(JSON.stringify(this.policies)).digest("hex");
 
     const textHash = createHash("sha256").update(request.content).digest("hex");
 
@@ -748,12 +769,9 @@ export class EgressFirewall {
       attestation_ref: attestationRef,
     };
 
-    const dataString = JSON.stringify(
-      certificateData,
-      Object.keys(certificateData).sort(),
-    );
+    const dataString = JSON.stringify(certificateData, Object.keys(certificateData).sort());
     const message = Buffer.from(dataString, "utf8");
-    const signature = await ed25519.sign(message, this.privateKey);
+    const signature = cryptoSign(null, message, this.privateKey);
     const sig = Buffer.from(signature).toString("hex");
 
     return {
@@ -766,16 +784,11 @@ export class EgressFirewall {
   async verifyCertificate(certificate: EgressCertificate): Promise<boolean> {
     try {
       const { sig, ...dataToSign } = certificate;
-      const dataString = JSON.stringify(
-        dataToSign,
-        Object.keys(dataToSign).sort(),
-      );
+      const dataString = JSON.stringify(dataToSign, Object.keys(dataToSign).sort());
       const message = Buffer.from(dataString, "utf8");
 
       const signature = Buffer.from(sig, "hex");
-      const isValid = await ed25519.verify(signature, message, this.publicKey);
-
-      return isValid;
+      return cryptoVerify(null, message, this.publicKey, signature);
     } catch (error) {
       return false;
     }
@@ -783,7 +796,7 @@ export class EgressFirewall {
 
   // Get public key for verification
   getPublicKey(): string {
-    return Buffer.from(this.publicKey).toString("hex");
+    return ed25519PublicKeyRawHex(this.publicKey);
   }
 
   // Get processing statistics

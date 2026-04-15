@@ -1,5 +1,5 @@
 import { BaseToolEmulator, ToolEmulatorConfig } from "../base/emulator";
-import { ToolCall } from "../../../runtime/gateway/src/types";
+import { ToolCall } from "../../contracts/types";
 
 export interface SlackMessage {
   id: string;
@@ -184,11 +184,9 @@ export class SlackEmulator extends BaseToolEmulator {
     }
 
     if (data.messages) {
-      Object.entries(data.messages).forEach(
-        ([channelId, msgs]: [string, any]) => {
-          this.messages.set(channelId, msgs);
-        },
-      );
+      Object.entries(data.messages).forEach(([channelId, msgs]: [string, any]) => {
+        this.messages.set(channelId, msgs);
+      });
     }
   }
 }

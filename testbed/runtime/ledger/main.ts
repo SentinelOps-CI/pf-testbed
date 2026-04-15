@@ -8,11 +8,7 @@ import { SafetyCaseManager } from "./safety_case";
 
 // Initialize logger
 const logger = createLogger({
-  format: format.combine(
-    format.timestamp(),
-    format.errors({ stack: true }),
-    format.json(),
-  ),
+  format: format.combine(format.timestamp(), format.errors({ stack: true }), format.json()),
   transports: [
     new transports.Console({
       format: format.combine(format.colorize(), format.simple()),
@@ -59,8 +55,7 @@ app.get("/metrics", async (req, res) => {
 // Safety case endpoints
 app.post("/api/safety-case", (req, res) => {
   try {
-    const { session_id, tenant, journey, plan, receipts, traces, theorems } =
-      req.body;
+    const { session_id, tenant, journey, plan, receipts, traces, theorems } = req.body;
 
     if (!session_id || !tenant || !journey || !plan) {
       return res.status(400).json({
@@ -119,17 +114,10 @@ app.get("/api/safety-case/tenant/:tenant", (req, res) => {
 });
 
 // Error handling middleware
-app.use(
-  (
-    err: any,
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    logger.error("Unhandled error", { error: err });
-    res.status(500).json({ error: "Internal server error" });
-  },
-);
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error("Unhandled error", { error: err });
+  res.status(500).json({ error: "Internal server error" });
+});
 
 // Start server
 app.listen(port, () => {

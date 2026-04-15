@@ -1,5 +1,5 @@
 import { createHash, createHmac } from "crypto";
-import { Plan, PlanStep, AccessReceipt, ExecutionContext } from "./types";
+import { Plan, ExecutionContext } from "./types";
 
 // Retrieval Gateway with Per-Tenant Partitions and Signed Access Receipts
 // Implements physical partition per tenant/label and signed Access Receipts verified per plan node
@@ -67,8 +67,8 @@ export class RetrievalGateway {
    */
   private initializeDefaultPartitions(): void {
     const defaultTenants = ["system", "admin", "public"];
-    
-    defaultTenants.forEach(tenant => {
+
+    defaultTenants.forEach((tenant) => {
       const partition: RetrievalPartition = {
         id: `partition_${tenant}`,
         tenant,
@@ -79,7 +79,7 @@ export class RetrievalGateway {
         created_at: new Date().toISOString(),
         last_accessed: new Date().toISOString(),
       };
-      
+
       this.partitions.set(partition.id, partition);
       this.tenantShards.set(tenant, new Set([partition.shard_id]));
       this.encryptionKeys.set(partition.id, partition.encryption_key);
@@ -92,7 +92,7 @@ export class RetrievalGateway {
   async createPartition(tenant: string, labels: string[]): Promise<RetrievalPartition> {
     const partitionId = `partition_${tenant}_${Date.now()}`;
     const shardId = `shard_${tenant}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     const partition: RetrievalPartition = {
       id: partitionId,
       tenant,
@@ -105,7 +105,7 @@ export class RetrievalGateway {
     };
 
     this.partitions.set(partitionId, partition);
-    
+
     if (!this.tenantShards.has(tenant)) {
       this.tenantShards.set(tenant, new Set());
     }
@@ -121,26 +121,28 @@ export class RetrievalGateway {
   async executeRetrieval(
     query: RetrievalQuery,
     plan: Plan,
-    context: ExecutionContext
+    context: ExecutionContext,
   ): Promise<{ result: RetrievalResult; receipt: SignedAccessReceipt }> {
     // Verify tenant isolation
     this.verifyTenantIsolation(query.tenant, context.tenant);
-    
+
     // Find appropriate partition
     const partition = this.findPartition(query.tenant, query.labels);
     if (!partition) {
-      throw new Error(`No partition found for tenant ${query.tenant} with labels ${query.labels.join(",")}`);
+      throw new Error(
+        `No partition found for tenant ${query.tenant} with labels ${query.labels.join(",")}`,
+      );
     }
 
     // Execute query in isolated partition
     const result = await this.executeQueryInPartition(query, partition);
-    
+
     // Generate signed access receipt
     const receipt = await this.generateAccessReceipt(query, result, plan, partition);
-    
+
     // Store receipt
     this.accessReceipts.set(receipt.id, receipt);
-    
+
     // Update partition access time
     partition.last_accessed = new Date().toISOString();
 
@@ -160,13 +162,12 @@ export class RetrievalGateway {
    * Find appropriate partition for tenant and labels
    */
   private findPartition(tenant: string, labels: string[]): RetrievalPartition | undefined {
-    const tenantPartitions = Array.from(this.partitions.values())
-      .filter(p => p.tenant === tenant);
-    
-    // Find partition with matching labels
-    return tenantPartitions.find(p => 
-      labels.every(label => p.labels.includes(label))
+    const tenantPartitions = Array.from(this.partitions.values()).filter(
+      (p) => p.tenant === tenant,
     );
+
+    // Find partition with matching labels
+    return tenantPartitions.find((p) => labels.every((label) => p.labels.includes(label)));
   }
 
   /**
@@ -174,7 +175,7 @@ export class RetrievalGateway {
    */
   private async executeQueryInPartition(
     query: RetrievalQuery,
-    partition: RetrievalPartition
+    partition: RetrievalPartition,
   ): Promise<RetrievalResult> {
     // Simulate query execution in isolated partition
     const result: RetrievalResult = {
@@ -202,7 +203,7 @@ export class RetrievalGateway {
     query: RetrievalQuery,
     result: RetrievalResult,
     plan: Plan,
-    partition: RetrievalPartition
+    partition: RetrievalPartition,
   ): Promise<SignedAccessReceipt> {
     const receipt: SignedAccessReceipt = {
       id: `receipt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -260,16 +261,14 @@ export class RetrievalGateway {
    * Get all receipts for a plan
    */
   getPlanReceipts(planId: string): SignedAccessReceipt[] {
-    return Array.from(this.accessReceipts.values())
-      .filter(r => r.plan_id === planId);
+    return Array.from(this.accessReceipts.values()).filter((r) => r.plan_id === planId);
   }
 
   /**
    * Get all receipts for a tenant
    */
   getTenantReceipts(tenant: string): SignedAccessReceipt[] {
-    return Array.from(this.accessReceipts.values())
-      .filter(r => r.tenant === tenant);
+    return Array.from(this.accessReceipts.values()).filter((r) => r.tenant === tenant);
   }
 
   /**
@@ -278,7 +277,7 @@ export class RetrievalGateway {
   auditCrossTenantAccess(): { attempts: number; blocked: number; allowed: number } {
     const receipts = Array.from(this.accessReceipts.values());
     const attempts = receipts.length;
-    const blocked = receipts.filter(r => !this.verifyAccessReceipt(r)).length;
+    const blocked = receipts.filter((r) => !this.verifyAccessReceipt(r)).length;
     const allowed = attempts - blocked;
 
     return { attempts, blocked, allowed };
@@ -301,7 +300,10 @@ export class RetrievalGateway {
     return `public_key_${partitionId}`;
   }
 
-  private async signReceipt(receipt: Omit<SignedAccessReceipt, "signature">, partitionId: string): Promise<string> {
+  private async signReceipt(
+    receipt: Omit<SignedAccessReceipt, "signature">,
+    partitionId: string,
+  ): Promise<string> {
     const key = this.encryptionKeys.get(partitionId);
     if (!key) {
       throw new Error(`No encryption key found for partition ${partitionId}`);
@@ -330,8 +332,7 @@ export class RetrievalGateway {
   }
 
   getTenantPartitions(tenant: string): RetrievalPartition[] {
-    return Array.from(this.partitions.values())
-      .filter(p => p.tenant === tenant);
+    return Array.from(this.partitions.values()).filter((p) => p.tenant === tenant);
   }
 
   getAccessReceipt(receiptId: string): SignedAccessReceipt | undefined {

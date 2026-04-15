@@ -1,6 +1,6 @@
 /**
  * Policy Types for Provability Fabric Testbed
- * 
+ *
  * Defines the core types used by policy compilers and validation systems.
  */
 
@@ -9,7 +9,7 @@ export interface PolicyRule {
   type: string;
   value: any;
   description?: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
+  severity: "low" | "medium" | "high" | "critical";
   metadata?: Record<string, any>;
 }
 
@@ -27,14 +27,14 @@ export interface Policy {
 
 export interface PolicyViolation {
   rule: string;
-  severity: 'warning' | 'error' | 'critical';
+  severity: "warning" | "error" | "critical";
   message: string;
   details?: Record<string, any>;
   timestamp?: string;
 }
 
 export interface PolicyDecision {
-  decision: 'allow' | 'deny' | 'modify' | 'escalate';
+  decision: "allow" | "deny" | "modify" | "escalate";
   confidence: number; // 0.0 to 1.0
   violations: PolicyViolation[];
   metadata: Record<string, any>;
@@ -45,11 +45,11 @@ export interface CompiledPolicy {
   id: string;
   original_policy: Policy;
   compiled_config: any;
-  provider: 'openai' | 'anthropic' | 'google' | 'azure';
+  provider: "openai" | "anthropic" | "google" | "azure";
   compilation_metadata: {
     compiled_at: string;
     compiler_version: string;
-    validation_status: 'valid' | 'invalid' | 'warning';
+    validation_status: "valid" | "invalid" | "warning";
     violations: PolicyViolation[];
   };
 }
@@ -90,12 +90,15 @@ export interface PolicyCompilerStats {
   average_compilation_time_ms: number;
   cache_hit_rate: number;
   last_compilation: string;
-  provider_stats: Record<string, {
-    total: number;
-    successful: number;
-    failed: number;
-    average_time_ms: number;
-  }>;
+  provider_stats: Record<
+    string,
+    {
+      total: number;
+      successful: number;
+      failed: number;
+      average_time_ms: number;
+    }
+  >;
 }
 
 export interface PolicyValidationResult {
@@ -111,7 +114,7 @@ export interface PolicyValidationResult {
 }
 
 // Provider-specific types
-export type ProviderType = 'openai' | 'anthropic' | 'google' | 'azure' | 'custom';
+export type ProviderType = "openai" | "anthropic" | "google" | "azure" | "custom";
 
 export interface ProviderConfig {
   type: ProviderType;
@@ -134,7 +137,7 @@ export interface RateLimitConfig {
 // Content filtering types
 export interface ContentFilterConfig {
   categories: string[];
-  levels: 'low' | 'medium' | 'high' | 'strict';
+  levels: "low" | "medium" | "high" | "strict";
   custom_filters: string[];
   whitelist: string[];
   blacklist: string[];
@@ -165,7 +168,7 @@ export interface FunctionCallConfig {
 export interface SafetyConfig {
   safety_instructions: string[];
   constitutional_principles: string[];
-  fallback_behavior: 'reject' | 'modify' | 'allow' | 'escalate';
+  fallback_behavior: "reject" | "modify" | "allow" | "escalate";
   escalation_threshold: number;
   human_review_required: boolean;
 }
@@ -198,7 +201,7 @@ export interface CostConfig {
 // Monitoring and observability types
 export interface MonitoringConfig {
   metrics_enabled: boolean;
-  logging_level: 'debug' | 'info' | 'warn' | 'error';
+  logging_level: "debug" | "info" | "warn" | "error";
   alerting_enabled: boolean;
   alert_thresholds: Record<string, number>;
   dashboard_urls: string[];

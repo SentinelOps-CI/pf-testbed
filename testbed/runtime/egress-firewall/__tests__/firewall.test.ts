@@ -1,15 +1,13 @@
 import {
   EgressFirewall,
   createEgressFirewall,
-  EgressCertificate,
   ContentRequest,
   SensitivePattern,
 } from "../src/firewall";
 
 describe("Egress Firewall", () => {
   let firewall: EgressFirewall;
-  const privateKey =
-    "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+  const privateKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
   beforeEach(() => {
     firewall = createEgressFirewall({
@@ -76,9 +74,7 @@ describe("Egress Firewall", () => {
       expect(result.blocked).toBe(true);
       expect(result.certificate.secrets).toBe("masked");
       expect(result.content).toContain("[API_KEY_MASKED]");
-      expect(result.content).not.toContain(
-        "sk-1234567890abcdef1234567890abcdef",
-      );
+      expect(result.content).not.toContain("sk-1234567890abcdef1234567890abcdef");
     });
 
     it("should detect passwords", async () => {
@@ -143,8 +139,7 @@ describe("Egress Firewall", () => {
 
     it("should calculate entropy correctly", async () => {
       const lowEntropyText = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-      const highEntropyText =
-        "The quick brown fox jumps over the lazy dog 123!@#";
+      const highEntropyText = "The quick brown fox jumps over the lazy dog 123!@#";
 
       const lowEntropyRequest: ContentRequest = {
         content: lowEntropyText,
@@ -193,8 +188,7 @@ describe("Egress Firewall", () => {
 
     it("should not flag completely different content", async () => {
       const content1 = "This is a test message with some content.";
-      const content2 =
-        "This is a completely different message about something else.";
+      const content2 = "This is a completely different message about something else.";
 
       const request1: ContentRequest = {
         content: content1,
@@ -219,8 +213,7 @@ describe("Egress Firewall", () => {
   describe("LLM Analysis", () => {
     it("should use LLM analysis for ambiguous cases", async () => {
       const request: ContentRequest = {
-        content:
-          "The password for the system is very important to keep secure.",
+        content: "The password for the system is very important to keep secure.",
         tenant: "acme",
         context: "support_chat",
       };
@@ -234,8 +227,7 @@ describe("Egress Firewall", () => {
 
     it("should handle context-aware analysis", async () => {
       const request: ContentRequest = {
-        content:
-          "The social security number field is required for tax purposes.",
+        content: "The social security number field is required for tax purposes.",
         tenant: "acme",
         context: "documentation",
       };
@@ -299,10 +291,7 @@ describe("Egress Firewall", () => {
       };
 
       // Mock a processing error by temporarily breaking the firewall
-      const originalProcess = firewall.process.bind(firewall);
-      jest
-        .spyOn(firewall, "process")
-        .mockRejectedValueOnce(new Error("Processing error"));
+      jest.spyOn(firewall, "process").mockRejectedValueOnce(new Error("Processing error"));
 
       try {
         await firewall.process(request);

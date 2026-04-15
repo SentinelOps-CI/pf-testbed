@@ -64,19 +64,13 @@ export class ValidationMiddleware {
     try {
       // Ensure request ID is set
       if (!res.locals["requestId"]) {
-        res.locals["requestId"] =
-          (req.headers["x-request-id"] as string) || "unknown";
+        res.locals["requestId"] = (req.headers["x-request-id"] as string) || "unknown";
       }
 
       // Extract and validate PF signature
       const pfSignature = req.headers["x-pf-signature"] as string;
       if (!pfSignature) {
-        this.sendError(
-          res,
-          403,
-          VALIDATION_ERROR_CODES.PF_SIG_MISSING,
-          "PF signature is required",
-        );
+        this.sendError(res, 403, VALIDATION_ERROR_CODES.PF_SIG_MISSING, "PF signature is required");
         return;
       }
 
@@ -94,23 +88,13 @@ export class ValidationMiddleware {
 
       // Check if signature is expired
       if (this.isSignatureExpired(parsedSignature.data.expires_at)) {
-        this.sendError(
-          res,
-          403,
-          VALIDATION_ERROR_CODES.PF_SIG_EXPIRED,
-          "PF signature has expired",
-        );
+        this.sendError(res, 403, VALIDATION_ERROR_CODES.PF_SIG_EXPIRED, "PF signature has expired");
         return;
       }
 
       // Verify signature authenticity
       if (!this.verifySignature(parsedSignature.data)) {
-        this.sendError(
-          res,
-          403,
-          VALIDATION_ERROR_CODES.PF_SIG_INVALID,
-          "Invalid signature",
-        );
+        this.sendError(res, 403, VALIDATION_ERROR_CODES.PF_SIG_INVALID, "Invalid signature");
         return;
       }
 
@@ -125,8 +109,7 @@ export class ValidationMiddleware {
           this.sendError(
             res,
             403,
-            receiptsValidation.errorCode ||
-              VALIDATION_ERROR_CODES.ACCESS_RECEIPT_INVALID,
+            receiptsValidation.errorCode || VALIDATION_ERROR_CODES.ACCESS_RECEIPT_INVALID,
             receiptsValidation.error || "Unknown error",
           );
           return;
@@ -248,10 +231,7 @@ export class ValidationMiddleware {
   private verifySignature(signatureData: any): boolean {
     try {
       const { signature, ...dataToSign } = signatureData;
-      const dataString = JSON.stringify(
-        dataToSign,
-        Object.keys(dataToSign).sort(),
-      );
+      const dataString = JSON.stringify(dataToSign, Object.keys(dataToSign).sort());
 
       const expectedSignature = createHmac(this.algorithm, this.secretKey)
         .update(dataString)
@@ -268,10 +248,7 @@ export class ValidationMiddleware {
   private verifyReceiptSignature(receipt: any): boolean {
     try {
       const { signature, ...dataToSign } = receipt;
-      const dataString = JSON.stringify(
-        dataToSign,
-        Object.keys(dataToSign).sort(),
-      );
+      const dataString = JSON.stringify(dataToSign, Object.keys(dataToSign).sort());
 
       const expectedSignature = createHmac(this.algorithm, this.secretKey)
         .update(dataString)
@@ -311,9 +288,7 @@ export class ValidationMiddleware {
     capabilities: string[];
     expires_in: number;
   }): string {
-    const expiresAt = new Date(
-      Date.now() + data.expires_in * 1000,
-    ).toISOString();
+    const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
     const nonce = randomBytes(16).toString("hex");
 
     // Create signature data without expires_in (since it's not part of the final structure)
@@ -325,14 +300,9 @@ export class ValidationMiddleware {
       expires_at: expiresAt,
     };
 
-    const dataString = JSON.stringify(
-      signatureData,
-      Object.keys(signatureData).sort(),
-    );
+    const dataString = JSON.stringify(signatureData, Object.keys(signatureData).sort());
 
-    const signature = createHmac(this.algorithm, this.secretKey)
-      .update(dataString)
-      .digest("hex");
+    const signature = createHmac(this.algorithm, this.secretKey).update(dataString).digest("hex");
 
     const fullData = { ...signatureData, signature };
     const base64Data = Buffer.from(JSON.stringify(fullData)).toString("base64");
@@ -349,9 +319,7 @@ export class ValidationMiddleware {
     result_hash: string;
     expires_in: number;
   }): any {
-    const expiresAt = new Date(
-      Date.now() + data.expires_in * 1000,
-    ).toISOString();
+    const expiresAt = new Date(Date.now() + data.expires_in * 1000).toISOString();
     const nonce = randomBytes(16).toString("hex");
 
     const receiptData = {
@@ -360,13 +328,8 @@ export class ValidationMiddleware {
       expires_at: expiresAt,
     };
 
-    const dataString = JSON.stringify(
-      receiptData,
-      Object.keys(receiptData).sort(),
-    );
-    const signature = createHmac(this.algorithm, this.secretKey)
-      .update(dataString)
-      .digest("hex");
+    const dataString = JSON.stringify(receiptData, Object.keys(receiptData).sort());
+    const signature = createHmac(this.algorithm, this.secretKey).update(dataString).digest("hex");
 
     return { ...receiptData, signature };
   }
@@ -383,11 +346,7 @@ export class TenantRateLimiter {
     this.maxRequests = maxRequests;
   }
 
-  public limitByTenant = (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): void => {
+  public limitByTenant = (req: Request, res: Response, next: NextFunction): void => {
     const tenant = req.tenant;
     if (!tenant) {
       next();
@@ -441,13 +400,8 @@ export class TenantRateLimiter {
 }
 
 // Request ID middleware
-export const requestIdMiddleware = (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-): void => {
-  const requestId =
-    (req.headers["x-request-id"] as string) || randomBytes(8).toString("hex");
+export const requestIdMiddleware = (req: Request, res: Response, next: NextFunction): void => {
+  const requestId = (req.headers["x-request-id"] as string) || randomBytes(8).toString("hex");
   res.locals["requestId"] = requestId;
   req.headers["x-request-id"] = requestId;
   next();

@@ -2,53 +2,21 @@
 // Exports all emulators for easy importing and use
 
 // Core emulators
-export {
-  SlackEmulator,
-  createSlackEmulator,
-  defaultSlackEmulator,
-} from "./slack";
+export { SlackEmulator, createSlackEmulator, defaultSlackEmulator } from "./slack";
 
-export {
-  StripeEmulator,
-  createStripeEmulator,
-  defaultStripeEmulator,
-} from "./stripe";
+export { StripeEmulator, createStripeEmulator, defaultStripeEmulator } from "./stripe";
 
-export {
-  EmailEmulator,
-  createEmailEmulator,
-  defaultEmailEmulator,
-} from "./email";
+export { EmailEmulator, createEmailEmulator, defaultEmailEmulator } from "./email";
 
-export {
-  CalendarEmulator,
-  createCalendarEmulator,
-  defaultCalendarEmulator,
-} from "./calendar";
+export { CalendarEmulator, createCalendarEmulator, defaultCalendarEmulator } from "./calendar";
 
-export {
-  NotionEmulator,
-  createNotionEmulator,
-  defaultNotionEmulator,
-} from "./notion";
+export { NotionEmulator, createNotionEmulator, defaultNotionEmulator } from "./notion";
 
-export {
-  GitHubEmulator,
-  createGitHubEmulator,
-  defaultGitHubEmulator,
-} from "./github";
+export { GitHubEmulator, createGitHubEmulator, defaultGitHubEmulator } from "./github";
 
-export {
-  SearchEmulator,
-  createSearchEmulator,
-  defaultSearchEmulator,
-} from "./search";
+export { SearchEmulator, createSearchEmulator, defaultSearchEmulator } from "./search";
 
-export {
-  FetchEmulator,
-  createFetchEmulator,
-  defaultFetchEmulator,
-} from "./fetch";
+export { FetchEmulator, createFetchEmulator, defaultFetchEmulator } from "./fetch";
 
 // Emulator factory for creating multiple emulators with consistent configuration
 export interface EmulatorConfig {
@@ -120,9 +88,9 @@ export class EmulatorFactory {
   }
 
   // Create specific emulator
-  createEmulator<
-    T extends keyof ReturnType<EmulatorFactory["createAllEmulators"]>,
-  >(type: T): ReturnType<EmulatorFactory["createAllEmulators"]>[T] {
+  createEmulator<T extends keyof ReturnType<EmulatorFactory["createAllEmulators"]>>(
+    type: T,
+  ): ReturnType<EmulatorFactory["createAllEmulators"]>[T] {
     const emulators = this.createAllEmulators();
     return emulators[type];
   }
@@ -139,9 +107,7 @@ export class EmulatorFactory {
 }
 
 // Utility function to create emulator factory
-export const createEmulatorFactory = (
-  config: EmulatorConfig,
-): EmulatorFactory => {
+export const createEmulatorFactory = (config: EmulatorConfig): EmulatorFactory => {
   return new EmulatorFactory(config);
 };
 

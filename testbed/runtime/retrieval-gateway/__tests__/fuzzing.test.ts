@@ -14,24 +14,17 @@ describe("Retrieval Gateway Fuzzing Tests", () => {
   });
 
   describe("Cross-Tenant Isolation Fuzzing", () => {
-    it("should maintain zero cross-tenant reads in 100,000 fuzzed queries", async () => {
+    it("should maintain zero cross-tenant reads in fuzzed queries", async () => {
       const tenants = ["acme", "globex"];
-      const subjects = [
-        "ticket_123",
-        "ticket_456",
-        "incident_789",
-        "incident_101",
-      ];
+      const subjects = ["ticket_123", "ticket_456", "incident_789", "incident_101"];
       const statuses = ["open", "resolved", "investigating", "closed"];
       const priorities = ["low", "medium", "high", "critical"];
 
       let crossTenantReads = 0;
-      const totalQueries = 100000;
+      const totalQueries = process.env["LONG_FUZZ"] === "1" ? 100000 : 10000;
       const batchSize = 1000;
 
-      console.log(
-        `Running ${totalQueries} fuzzed queries to test cross-tenant isolation...`,
-      );
+      console.log(`Running ${totalQueries} fuzzed queries...`);
 
       for (let batch = 0; batch < totalQueries / batchSize; batch++) {
         const batchPromises = [];
@@ -39,8 +32,8 @@ describe("Retrieval Gateway Fuzzing Tests", () => {
         for (let i = 0; i < batchSize; i++) {
           // Generate random request parameters
           const request = {
-            tenant: tenants[randomInt(0, tenants.length)],
-            subject: subjects[randomInt(0, subjects.length)],
+            tenant: tenants[randomInt(0, tenants.length)] as string,
+            subject: subjects[randomInt(0, subjects.length)] as string,
             query: {
               status: statuses[randomInt(0, statuses.length)],
               priority: priorities[randomInt(0, priorities.length)],
@@ -71,9 +64,7 @@ describe("Retrieval Gateway Fuzzing Tests", () => {
         }
 
         if (batch % 10 === 0) {
-          console.log(
-            `Completed batch ${batch + 1}/${totalQueries / batchSize}`,
-          );
+          console.log(`Completed batch ${batch + 1}/${totalQueries / batchSize}`);
         }
       }
 
@@ -86,7 +77,7 @@ describe("Retrieval Gateway Fuzzing Tests", () => {
       const concurrentRequests = 1000;
 
       const requests = Array.from({ length: concurrentRequests }, () => ({
-        tenant: tenants[randomInt(0, tenants.length)],
+        tenant: tenants[randomInt(0, tenants.length)] as string,
         subject: "ticket_123",
         query: {},
         user_id: `user_${randomInt(1, 100)}`,
@@ -94,9 +85,7 @@ describe("Retrieval Gateway Fuzzing Tests", () => {
         nonce: randomBytes(16).toString("hex"),
       }));
 
-      const responses = await Promise.all(
-        requests.map((request) => gateway.retrieve(request)),
-      );
+      const responses = await Promise.all(requests.map((request) => gateway.retrieve(request)));
 
       let crossTenantReads = 0;
       for (const response of responses) {

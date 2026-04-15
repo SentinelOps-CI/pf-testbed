@@ -1,10 +1,5 @@
 import { BaseAgentRunner } from "../../../runtime/gateway/src/base-runner";
-import {
-  Plan,
-  ToolCall,
-  ToolResult,
-  AgentConfig,
-} from "../../../runtime/gateway/src/types";
+import { Plan, ToolCall, ToolResult, AgentConfig } from "../../contracts/types";
 
 /**
  * LangChain Agent Runner
@@ -39,9 +34,7 @@ export class LangChainRunner extends BaseAgentRunner {
       // Node.js environment
       try {
         const { ChatOpenAI } = await import("langchain/chat_models/openai");
-        const { AgentExecutor, createOpenAIFunctionsAgent } = await import(
-          "langchain/agents"
-        );
+        const { AgentExecutor, createOpenAIFunctionsAgent } = await import("langchain/agents");
         const { PromptTemplate } = await import("langchain/prompts");
         const { DynamicStructuredTool } = await import("langchain/tools");
 
@@ -459,9 +452,7 @@ export class LangChainRunner extends BaseAgentRunner {
       if (!planData.id) planData.id = this.generateId();
       if (!planData.timestamp) planData.timestamp = new Date().toISOString();
       if (!planData.expiresAt)
-        planData.expiresAt = new Date(
-          Date.now() + 24 * 60 * 60 * 1000,
-        ).toISOString();
+        planData.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
       return planData as Plan;
     } catch (error) {

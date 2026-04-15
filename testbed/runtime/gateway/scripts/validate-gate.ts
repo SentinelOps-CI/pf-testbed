@@ -89,12 +89,7 @@ class GateValidator {
         };
       }
 
-      const expectedStacks = [
-        "openai-assistants",
-        "langchain",
-        "langgraph",
-        "dspy",
-      ];
+      const expectedStacks = ["openai-assistants", "langchain", "langgraph", "dspy"];
       for (const stack of expectedStacks) {
         if (!registeredStacks.includes(stack)) {
           return {
@@ -152,9 +147,7 @@ class GateValidator {
 
           // Log progress
           const status = result.success ? "✅" : "❌";
-          console.log(
-            `${status} ${journey} on ${stack}: ${result.execution_time}ms`,
-          );
+          console.log(`${status} ${journey} on ${stack}: ${result.execution_time}ms`);
         }
       }
 
@@ -181,10 +174,7 @@ class GateValidator {
   /**
    * Execute a single journey on a single stack
    */
-  private async executeJourney(
-    journey: string,
-    stack: string,
-  ): Promise<JourneyResult> {
+  private async executeJourney(journey: string, stack: string): Promise<JourneyResult> {
     const startTime = Date.now();
 
     try {
@@ -287,8 +277,7 @@ class GateValidator {
 
       // Check performance requirements
       const executionTimes = this.results.map((r) => r.execution_time);
-      const avgTime =
-        executionTimes.reduce((a, b) => a + b, 0) / executionTimes.length;
+      const avgTime = executionTimes.reduce((a, b) => a + b, 0) / executionTimes.length;
       const maxTime = Math.max(...executionTimes);
 
       if (avgTime > 10000) {
@@ -344,8 +333,7 @@ class GateValidator {
       // Check per-stack performance
       for (const stack of stacks) {
         const stackResults = this.results.filter((r) => r.stack === stack);
-        const stackSuccessRate =
-          stackResults.filter((r) => r.success).length / stackResults.length;
+        const stackSuccessRate = stackResults.filter((r) => r.success).length / stackResults.length;
 
         if (stackSuccessRate < 0.75) {
           // 75% success rate per stack
@@ -405,8 +393,7 @@ class GateValidator {
 
     // Performance metrics
     const executionTimes = this.results.map((r) => r.execution_time);
-    const avgTime =
-      executionTimes.reduce((a, b) => a + b, 0) / executionTimes.length;
+    const avgTime = executionTimes.reduce((a, b) => a + b, 0) / executionTimes.length;
     const minTime = Math.min(...executionTimes);
     const maxTime = Math.max(...executionTimes);
 
@@ -423,8 +410,7 @@ class GateValidator {
       const stackSuccessful = stackResults.filter((r) => r.success).length;
       const stackSuccessRate = (stackSuccessful / stackResults.length) * 100;
       const stackAvgTime =
-        stackResults.reduce((a, b) => a + b.execution_time, 0) /
-        stackResults.length;
+        stackResults.reduce((a, b) => a + b.execution_time, 0) / stackResults.length;
 
       console.log(`\n${stack}:`);
       console.log(`  Success Rate: ${stackSuccessRate.toFixed(1)}%`);
@@ -438,11 +424,9 @@ class GateValidator {
     for (const journey of journeys) {
       const journeyResults = this.results.filter((r) => r.journey === journey);
       const journeySuccessful = journeyResults.filter((r) => r.success).length;
-      const journeySuccessRate =
-        (journeySuccessful / journeyResults.length) * 100;
+      const journeySuccessRate = (journeySuccessful / journeyResults.length) * 100;
       const journeyAvgTime =
-        journeyResults.reduce((a, b) => a + b.execution_time, 0) /
-        journeyResults.length;
+        journeyResults.reduce((a, b) => a + b.execution_time, 0) / journeyResults.length;
 
       console.log(`\n${journey}:`);
       console.log(`  Success Rate: ${journeySuccessRate.toFixed(1)}%`);
@@ -455,9 +439,7 @@ class GateValidator {
     if (failed.length > 0) {
       console.log(`\n❌ FAILED EXECUTIONS`);
       for (const failure of failed) {
-        console.log(
-          `  ${failure.journey} on ${failure.stack}: ${failure.error}`,
-        );
+        console.log(`  ${failure.journey} on ${failure.stack}: ${failure.error}`);
       }
     }
 
@@ -480,23 +462,17 @@ class GateValidator {
         console.error("Details:", initResult.details);
         return false;
       }
-      console.log(
-        `✅ Agent initialization completed in ${initResult.duration}ms`,
-      );
+      console.log(`✅ Agent initialization completed in ${initResult.duration}ms`);
 
       // Step 2: Execute all journeys
       console.log("\n📋 Step 2: Executing All Journeys on All Stacks");
       const executionResult = await this.executeAllJourneys();
       if (!executionResult.success) {
-        console.error(
-          `❌ Journey execution failed: ${executionResult.message}`,
-        );
+        console.error(`❌ Journey execution failed: ${executionResult.message}`);
         console.error("Details:", executionResult.details);
         return false;
       }
-      console.log(
-        `✅ Journey execution completed in ${executionResult.duration}ms`,
-      );
+      console.log(`✅ Journey execution completed in ${executionResult.duration}ms`);
 
       // Step 3: Validate results
       console.log("\n📋 Step 3: Validating Results");
@@ -512,9 +488,7 @@ class GateValidator {
       this.generateReport();
 
       console.log("\n🎉 GATE VALIDATION PASSED!");
-      console.log(
-        "All five journeys run on all four stacks with comparable metrics.",
-      );
+      console.log("All five journeys run on all four stacks with comparable metrics.");
 
       return true;
     } catch (error) {

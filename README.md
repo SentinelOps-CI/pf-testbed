@@ -1,158 +1,148 @@
 # Provability Fabric Testbed
 
-**Enterprise-Grade Testbed for Provability Fabric**
+Secure, observable, multi-tenant infrastructure for building and validating AI workflow systems.
 
-[![Dependency Status](https://img.shields.io/badge/dependencies-up%20to%20date-brightgreen)](https://github.com/provability-fabric/pf-testbed/actions)
-[![Security Status](https://img.shields.io/badge/security-audited-brightgreen)](https://github.com/provability-fabric/pf-testbed/actions)
-[![Platform Support](https://img.shields.io/badge/platforms-Windows%20%7C%20macOS%20%7C%20Linux-blue)](https://github.com/provability-fabric/pf-testbed)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18-2f855a)](https://nodejs.org/)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.11-2b6cb0)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-Apache%202.0-4a5568)](./LICENSE)
 
-## **Quick Start**
+---
 
-### **Prerequisites**
-- Python 3.8+
+## Why This Repository Exists
+
+The testbed is designed to validate AI workflow systems under realistic constraints:
+
+- strict tenant isolation
+- policy-aware tool execution
+- auditable traces and evidence
+- reproducible quality and security gates
+
+It provides a practical environment for architecture hardening, scenario validation, and production-readiness checks.
+
+## Quick Navigation
+
+- [Quick Start](#quick-start)
+- [Repository Map](#repository-map)
+- [Developer Commands](#developer-commands)
+- [CI and Quality Model](#ci-and-quality-model)
+- [Documentation](#documentation)
+
+## Quick Start
+
+### Prerequisites
+
 - Node.js 18+
-- Docker (optional)
+- Python 3.11+ (recommended)
 - Git
+- Docker (optional, for full local stack)
 
-### **Installation (Any Platform)**
+### 1) Install Dependencies
 
 ```bash
-# Clone the repository
 git clone https://github.com/provability-fabric/pf-testbed.git
 cd pf-testbed
-
-# Install dependencies (automatically detects your platform)
-make deps
-
-# Or use the advanced dependency manager
-python scripts/manage-deps.py --install
+npm ci
+python -m pip install -r requirements.txt
+python -m pip install -r testbed/tools/reporter/requirements.txt
 ```
 
-### **First Run**
+### 2) Validate Baseline
 
 ```bash
-# Start all services
+npm run validate:workflows
+npm run retrieval:contract-check
+npm run ci:verify
+```
+
+### 3) Start Local Services
+
+```bash
 make up
+make status
+```
 
-# Run quality checks
-make quality-check
+Core endpoints:
 
-# Generate evidence pack
+- Gateway: `http://localhost:3003`
+- Ingress: `http://localhost:3001`
+- Ledger: `http://localhost:3002`
+- Grafana: `http://localhost:3100`
+- Prometheus: `http://localhost:9090`
+
+## Repository Map
+
+| Area                                | Purpose                                                |
+| ----------------------------------- | ------------------------------------------------------ |
+| `testbed/runtime/gateway`           | Orchestration, routing, decision-path traces, metering |
+| `testbed/ingress/selfserve`         | Self-serve onboarding and request validation           |
+| `testbed/runtime/ledger`            | Safety case packaging and evidence workflows           |
+| `testbed/runtime/retrieval-gateway` | Retrieval contracts, tenant isolation, signed receipts |
+| `testbed/runtime/egress-firewall`   | Sensitive content detection and egress certificates    |
+| `testbed/runtime/policy-kernel`     | Policy kernel (tests currently excluded; see CI notes) |
+| `testbed/tools`                     | Security gates, probes, metering, reporting            |
+| `testbed/scenarios`                 | End-to-end business and technical journey fixtures     |
+
+## Developer Commands
+
+### Quality and integrity
+
+```bash
+npm run validate:workflows
+npm run retrieval:contract-check
+npm run ci:verify
+npm run typecheck
+```
+
+### Service lifecycle
+
+```bash
+make up
+make down
+make logs
+make status
+```
+
+### Security and evidence
+
+```bash
+npm run security:test
 make evidence
-
-# Run security testing
-make redteam
 ```
 
-## **Available Commands**
+## CI and Quality Model
 
-### **Cross-Platform Commands (make)**
-```bash
-# Dependency Management
-make deps              # Install all dependencies
-make deps-clean        # Clean and reinstall
-make deps-update       # Update to latest versions
-make deps-audit        # Security audit
-make deps-report       # Generate dependency report
+### Local gate: `npm run ci:verify`
 
-# Development
-make build             # Build all components
-make test              # Run all tests
-make lint              # Code quality checks
-make format            # Format code
-make quality-check     # Comprehensive quality validation
+This is the primary Node/TypeScript quality gate. It runs, in order:
 
-# Operations
-make up                # Start all services
-make down              # Stop all services
-make seed              # Seed data and populate indices
-make soak              # Load testing and performance validation
-make redteam           # Security testing and adversarial validation
-make evidence          # Generate evidence pack export
-make metering          # Generate billing and usage reports
+1. `npm run validate:workflows` — Python check that workflow references resolve
+2. `npm run lint` — ESLint on gateway, ingress self-serve, and ledger entrypoints
+3. `npm run format:check` — Prettier on `testbed/**/*.{ts,js,json,md}`
+4. `npm run typecheck` — `tsc` for gateway, ingress self-serve, and ledger projects
+5. `npm test` — Jest tests under `testbed/`
 
-# CI/CD
-make ci                # Run CI pipeline locally
-make cd                # Run CD pipeline locally
-make deploy            # Deploy to target environment
-```
+After `ci:verify` passes locally, also run `npm run retrieval:contract-check` before pushing; the GitHub Actions workflow runs both plus Python reporter tests.
 
-### **Windows-Specific Commands (run.bat)**
-```cmd
-# Use run.bat for Windows environments
-run.bat up             # Start services
-run.bat evidence       # Generate evidence
-run.bat soak           # Run load tests
-run.bat redteam        # Security testing
-run.bat metering       # Billing reports
-```
+### Jest exclusions
 
-## **Architecture**
+Two suites are listed in `testPathIgnorePatterns` in `jest.config.js` because they target APIs that have diverged from the current runtime (`AgentRunner` / `PolicyKernel`). Re-enable them by aligning implementations or updating tests.
 
-### **Core Components**
-```
-pf-testbed/
-├── scripts/manage-deps.py      # Advanced dependency manager
-├── Makefile                    # Cross-platform build system
-├── .github/workflows/          # CI/CD pipeline
-├── .pre-commit-config.yaml    # Quality gates
-├── docker-compose.yml          # Service orchestration
-├── testbed/                    # Core testbed components
-├── external/                   # External integrations
-└── docs/                       # Comprehensive documentation
-```
+### GitHub Actions
 
-### **Service Architecture**
-- **Gateway Service** - API gateway and routing
-- **Ingress Controller** - Self-serve portal
-- **Ledger Service** - Blockchain and transaction management
-- **Monitoring Stack** - Prometheus, Grafana, and alerting
-- **Security Tools** - Redteam testing and vulnerability scanning
+Workflows live under `.github/workflows/`. The main continuous integration job is `ci.yml` (workflow integrity, `ci:verify`, retrieval contract validation, reporter pytest, security). Use that file as the source of truth for what runs in CI.
 
-## **Contributing**
+## Architectural Principles
 
-### **Development Setup**
-```bash
-# Clone and setup
-git clone <repository-url>
-cd pf-testbed
-make deps
-make quality-check
+- Contract-first boundaries between modules and services
+- No imports from private internals across package boundaries
+- Tenant isolation and signed evidence by default
+- Deterministic local and CI behavior
 
-# Development workflow
-make build
-make test
-make format
-make lint
-```
+## Documentation
 
-### **Code Standards**
-- **Python** - PEP 8, Black, isort, flake8, mypy
-- **JavaScript/TypeScript** - ESLint, Prettier, type checking
-- **Testing** - >80% code coverage, comprehensive test suites
-- **Documentation** - Clear APIs, examples, and guides
+- `docs/quickstart.md` — standard onboarding path
+- `docs/quickstart_byo_agent.md` — bring-your-own-agent integration
 
-## **Support & Community**
+## License
 
-### **Getting Help**
-- **Documentation** - Comprehensive guides and examples
-- **Issues** - GitHub Issues for bug reports and feature requests
-- **Discussions** - Community forums and Q&A
-- **Security** - Security@provability-fabric.org for security issues
-
-### **Resources**
-- **Quick Start Guide** - `docs/quickstart.md`
-- **Dependency Management** - `DEPENDENCY_MANAGEMENT.md`
-- **API Documentation** - `docs/api/`
-- **Architecture Guide** - `docs/architecture.md`
-
-## **License**
-
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
-
-## **Acknowledgments**
-
-- **Provability Fabric Team** - Core development and architecture
-- **Open Source Community** - Dependencies and tools
-- **Security Researchers** - Vulnerability reporting and testing
-- **Contributors** - Code, documentation, and testing
+Licensed under Apache 2.0. See `LICENSE`.

@@ -1,10 +1,5 @@
 import { BaseAgentRunner } from "../../../runtime/gateway/src/base-runner";
-import {
-  Plan,
-  ToolCall,
-  ToolResult,
-  AgentConfig,
-} from "../../../runtime/gateway/src/types";
+import { Plan, ToolCall, ToolResult, AgentConfig } from "../../contracts/types";
 
 /**
  * OpenAI Assistants Agent Runner
@@ -64,13 +59,10 @@ export class OpenAIAssistantsRunner extends BaseAgentRunner {
       }
 
       // Send message to assistant
-      const message = await this.openai.beta.threads.messages.create(
-        this.threadId,
-        {
-          role: "user",
-          content: JSON.stringify(json),
-        },
-      );
+      const message = await this.openai.beta.threads.messages.create(this.threadId, {
+        role: "user",
+        content: JSON.stringify(json),
+      });
 
       // Run the assistant
       const run = await this.openai.beta.threads.runs.create(this.threadId, {
@@ -78,15 +70,10 @@ export class OpenAIAssistantsRunner extends BaseAgentRunner {
       });
 
       // Wait for completion
-      const completedRun = await this.waitForRunCompletion(
-        this.threadId,
-        run.id,
-      );
+      const completedRun = await this.waitForRunCompletion(this.threadId, run.id);
 
       // Get the response
-      const messages = await this.openai.beta.threads.messages.list(
-        this.threadId,
-      );
+      const messages = await this.openai.beta.threads.messages.list(this.threadId);
       const lastMessage = messages.data[0];
 
       // Parse the response into a plan
@@ -194,9 +181,7 @@ export class OpenAIAssistantsRunner extends BaseAgentRunner {
     try {
       // Check if we already have an assistant
       const assistants = await this.openai.beta.assistants.list();
-      const existingAssistant = assistants.data.find(
-        (a) => a.name === "PF Testbed Assistant",
-      );
+      const existingAssistant = assistants.data.find((a) => a.name === "PF Testbed Assistant");
 
       if (existingAssistant) {
         return existingAssistant.id;
@@ -282,10 +267,7 @@ export class OpenAIAssistantsRunner extends BaseAgentRunner {
   /**
    * Wait for a run to complete
    */
-  private async waitForRunCompletion(
-    threadId: string,
-    runId: string,
-  ): Promise<any> {
+  private async waitForRunCompletion(threadId: string, runId: string): Promise<any> {
     let run;
     let attempts = 0;
     const maxAttempts = 60; // 5 minutes with 5-second intervals
@@ -328,9 +310,7 @@ export class OpenAIAssistantsRunner extends BaseAgentRunner {
       if (!planData.id) planData.id = this.generateId();
       if (!planData.timestamp) planData.timestamp = new Date().toISOString();
       if (!planData.expiresAt)
-        planData.expiresAt = new Date(
-          Date.now() + 24 * 60 * 60 * 1000,
-        ).toISOString();
+        planData.expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
       return planData as Plan;
     } catch (error) {

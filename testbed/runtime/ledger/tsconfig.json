@@ -4,7 +4,6 @@
     "module": "commonjs",
     "lib": ["ES2020"],
     "outDir": "./dist",
-    "rootDir": "./",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -18,6 +17,6 @@
     "emitDecoratorMetadata": true,
     "moduleResolution": "node"
   },
-  "include": ["**/*.ts"],
+  "include": ["main.ts", "safety_case.ts"],
   "exclude": ["node_modules", "dist", "__tests__"]
 }

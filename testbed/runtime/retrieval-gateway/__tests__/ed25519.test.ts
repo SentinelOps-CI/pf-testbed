@@ -1,8 +1,4 @@
-import {
-  RetrievalGateway,
-  InMemoryShardedStore,
-  AccessReceipt,
-} from "../src/gateway";
+import { RetrievalGateway, InMemoryShardedStore, AccessReceipt } from "../src/gateway";
 import { randomBytes } from "crypto";
 
 describe("Retrieval Gateway Ed25519 & Honeytoken Tests", () => {
@@ -35,8 +31,8 @@ describe("Retrieval Gateway Ed25519 & Honeytoken Tests", () => {
       const isValid = await gateway.verifyReceipt(receipt);
       expect(isValid).toBe(true);
 
-      // Verify the signature format (Ed25519 produces 64-byte signatures)
-      expect(receipt.sig).toHaveLength(128); // 64 bytes = 128 hex chars
+      // HMAC-SHA256 signatures are 32 bytes = 64 hex characters
+      expect(receipt.sig).toHaveLength(64);
     });
 
     it("should reject tampered receipts", async () => {
@@ -127,9 +123,7 @@ describe("Retrieval Gateway Ed25519 & Honeytoken Tests", () => {
 
       expect(response.success).toBe(true);
       expect(response.data.is_honeytoken).toBe(true);
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining("🚨 HONEYTOKEN ALERT"),
-      );
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("🚨 HONEYTOKEN ALERT"));
 
       consoleSpy.mockRestore();
     });
@@ -150,10 +144,7 @@ describe("Retrieval Gateway Ed25519 & Honeytoken Tests", () => {
       await gateway.retrieve(request);
 
       // Check if honeytoken access was tracked
-      const honeytoken = await dataStore.getHoneytoken(
-        "acme",
-        "honeytoken_001",
-      );
+      const honeytoken = await dataStore.getHoneytoken("acme", "honeytoken_001");
       expect(honeytoken).toBeDefined();
       expect(honeytoken!.accessed_count).toBe(3);
     });
@@ -180,14 +171,8 @@ describe("Retrieval Gateway Ed25519 & Honeytoken Tests", () => {
       await gateway.retrieve(acmeRequest);
       await gateway.retrieve(globexRequest);
 
-      const acmeHoneytoken = await dataStore.getHoneytoken(
-        "acme",
-        "honeytoken_001",
-      );
-      const globexHoneytoken = await dataStore.getHoneytoken(
-        "globex",
-        "honeytoken_001",
-      );
+      const acmeHoneytoken = await dataStore.getHoneytoken("acme", "honeytoken_001");
+      const globexHoneytoken = await dataStore.getHoneytoken("globex", "honeytoken_001");
 
       expect(acmeHoneytoken!.accessed_count).toBe(1);
       expect(globexHoneytoken!.accessed_count).toBe(1);

@@ -1,8 +1,4 @@
-import {
-  ToolCall,
-  ToolResult,
-  CapabilityToken,
-} from "../../../runtime/gateway/src/types";
+import { ToolCall, ToolResult } from "../../contracts/types";
 import { ToolEmulator } from "../base/emulator";
 
 export interface CapabilityCheck {
@@ -36,12 +32,9 @@ export class CapabilityBroker {
   private emulators: Map<string, ToolEmulator> = new Map();
   private capabilityLogs: CapabilityLog[] = [];
   private quotas: Map<string, QuotaConfig> = new Map();
-  private usage: Map<
-    string,
-    { daily: number; monthly: number; burst: number; lastReset: number }
-  > = new Map();
-  private rateLimitWindows: Map<string, { start: number; count: number }> =
+  private usage: Map<string, { daily: number; monthly: number; burst: number; lastReset: number }> =
     new Map();
+  private rateLimitWindows: Map<string, { start: number; count: number }> = new Map();
 
   constructor() {
     this.initializeDefaultQuotas();
@@ -113,12 +106,8 @@ export class CapabilityBroker {
     const requiredCapabilities = emulator.capabilities;
     const providedCapabilities = call.capability ? [call.capability] : [];
 
-    const missing = requiredCapabilities.filter(
-      (cap) => !providedCapabilities.includes(cap),
-    );
-    const excess = providedCapabilities.filter(
-      (cap) => !requiredCapabilities.includes(cap),
-    );
+    const missing = requiredCapabilities.filter((cap) => !providedCapabilities.includes(cap));
+    const excess = providedCapabilities.filter((cap) => !requiredCapabilities.includes(cap));
 
     return {
       required: requiredCapabilities,
@@ -386,8 +375,7 @@ export class CapabilityBroker {
       tenant: call.tenant,
       user: call.parameters.user || "unknown",
       tool: call.tool,
-      required_capabilities:
-        this.emulators.get(call.tool.split(".")[0])?.capabilities || [],
+      required_capabilities: this.emulators.get(call.tool.split(".")[0])?.capabilities || [],
       provided_capabilities: call.capability ? [call.capability] : [],
       result,
       metadata,

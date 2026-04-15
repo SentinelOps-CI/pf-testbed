@@ -2,13 +2,12 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import cors from "cors";
-import { createHash, randomBytes } from "crypto";
+import { randomBytes } from "crypto";
 import { z } from "zod";
 import {
   ValidationMiddleware,
   TenantRateLimiter,
   requestIdMiddleware,
-  VALIDATION_ERROR_CODES,
 } from "./middleware/validation";
 
 // Self-serve ingress system for external partners
@@ -24,9 +23,7 @@ export class SelfServeIngress {
     this.app = express();
 
     // Initialize validation middleware with secret key
-    const secretKey =
-      process.env.PF_SIGNATURE_SECRET ||
-      "default-secret-key-change-in-production";
+    const secretKey = this.resolveSignatureSecret();
     this.validationMiddleware = new ValidationMiddleware(secretKey);
     this.tenantRateLimiter = new TenantRateLimiter(15 * 60 * 1000, 100); // 15 min window, 100 requests
 
@@ -34,14 +31,21 @@ export class SelfServeIngress {
     this.setupRoutes();
   }
 
+  private resolveSignatureSecret(): string {
+    const secret = process.env.PF_SIGNATURE_SECRET;
+    if (secret) return secret;
+    if (process.env.NODE_ENV === "test") {
+      return "test-signature-secret";
+    }
+    throw new Error("PF_SIGNATURE_SECRET must be set for non-test ingress environments");
+  }
+
   private setupMiddleware(): void {
     // Security middleware
     this.app.use(helmet());
     this.app.use(
       cors({
-        origin: process.env.ALLOWED_ORIGINS?.split(",") || [
-          "http://localhost:3000",
-        ],
+        origin: process.env.ALLOWED_ORIGINS?.split(",") || ["http://localhost:3000"],
         credentials: true,
       }),
     );
@@ -93,10 +97,7 @@ export class SelfServeIngress {
 
     // Validation endpoints with PF-Sig and Access Receipt validation
     this.app.post("/api/validate-pf-sig", this.handleValidatePfSig.bind(this));
-    this.app.post(
-      "/api/validate-receipt",
-      this.handleValidateReceipt.bind(this),
-    );
+    this.app.post("/api/validate-receipt", this.handleValidateReceipt.bind(this));
 
     // New validation endpoints with enhanced middleware
     this.app.post(
@@ -107,21 +108,12 @@ export class SelfServeIngress {
     );
 
     // Test endpoints for generating signatures and receipts
-    this.app.post(
-      "/api/test/generate-signature",
-      this.handleGenerateSignature.bind(this),
-    );
-    this.app.post(
-      "/api/test/generate-receipt",
-      this.handleGenerateReceipt.bind(this),
-    );
+    this.app.post("/api/test/generate-signature", this.handleGenerateSignature.bind(this));
+    this.app.post("/api/test/generate-receipt", this.handleGenerateReceipt.bind(this));
   }
 
   // Signup handler
-  private async handleSignup(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async handleSignup(req: express.Request, res: express.Response): Promise<void> {
     try {
       const signupData = SignupSchema.parse(req.body);
 
@@ -164,9 +156,7 @@ export class SelfServeIngress {
       });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res
-          .status(400)
-          .json({ error: "Invalid signup data", details: error.errors });
+        res.status(400).json({ error: "Invalid signup data", details: error.errors });
       } else {
         res.status(500).json({ error: "Internal server error" });
       }
@@ -174,10 +164,7 @@ export class SelfServeIngress {
   }
 
   // API key creation
-  private async handleCreateApiKey(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async handleCreateApiKey(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { tenant_id, name } = req.body;
 
@@ -201,10 +188,7 @@ export class SelfServeIngress {
   }
 
   // API key retrieval
-  private async handleGetApiKey(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async handleGetApiKey(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { keyId } = req.params;
       const apiKey = this.apiKeys.get(keyId);
@@ -229,10 +213,7 @@ export class SelfServeIngress {
   }
 
   // API key revocation
-  private async handleRevokeApiKey(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async handleRevokeApiKey(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { keyId } = req.params;
       const apiKey = this.apiKeys.get(keyId);
@@ -252,10 +233,7 @@ export class SelfServeIngress {
   }
 
   // Tenant retrieval
-  private async handleGetTenant(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async handleGetTenant(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { tenantId } = req.params;
       const tenant = this.tenants.get(tenantId);
@@ -281,10 +259,7 @@ export class SelfServeIngress {
   }
 
   // Tenant update
-  private async handleUpdateTenant(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async handleUpdateTenant(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { tenantId } = req.params;
       const updateData = TenantUpdateSchema.parse(req.body);
@@ -305,9 +280,7 @@ export class SelfServeIngress {
       res.json({ message: "Tenant updated successfully" });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res
-          .status(400)
-          .json({ error: "Invalid update data", details: error.errors });
+        res.status(400).json({ error: "Invalid update data", details: error.errors });
       } else {
         res.status(500).json({ error: "Failed to update tenant" });
       }
@@ -332,10 +305,7 @@ export class SelfServeIngress {
       const middlewareContent = this.generateMiddlewareExample(type);
 
       res.setHeader("Content-Type", "application/zip");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${type}-middleware.zip"`,
-      );
+      res.setHeader("Content-Disposition", `attachment; filename="${type}-middleware.zip"`);
       res.send(Buffer.from(middlewareContent, "utf-8"));
     } catch (error) {
       res.status(500).json({ error: "Failed to download middleware" });
@@ -343,10 +313,7 @@ export class SelfServeIngress {
   }
 
   // Documentation
-  private async handleGetDocs(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async handleGetDocs(req: express.Request, res: express.Response): Promise<void> {
     res.json({
       title: "Testbed API Documentation",
       version: "1.0.0",
@@ -429,10 +396,7 @@ export class SelfServeIngress {
   }
 
   // PF-Sig validation
-  private async handleValidatePfSig(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async handleValidatePfSig(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { signature, data } = req.body;
 
@@ -478,10 +442,7 @@ export class SelfServeIngress {
   }
 
   // Receipt validation
-  private async handleValidateReceipt(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async handleValidateReceipt(req: express.Request, res: express.Response): Promise<void> {
     try {
       const { receipt } = req.body;
 
@@ -552,9 +513,7 @@ export class SelfServeIngress {
 
   // Helper methods
   private emailExists(email: string): boolean {
-    return Array.from(this.tenants.values()).some(
-      (tenant) => tenant.email === email,
-    );
+    return Array.from(this.tenants.values()).some((tenant) => tenant.email === email);
   }
 
   private createTenant(signupData: SignupData): Tenant {
@@ -584,9 +543,7 @@ export class SelfServeIngress {
       name,
       key: this.generateApiKey(),
       created_at: new Date().toISOString(),
-      expires_at: new Date(
-        Date.now() + 365 * 24 * 60 * 60 * 1000,
-      ).toISOString(), // 1 year
+      expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(), // 1 year
       last_used: null,
       status: "active",
       revoked_at: null,
@@ -603,7 +560,7 @@ export class SelfServeIngress {
       windowMs: limits.windowMs,
       max: limits.maxRequests,
       message: `Rate limit exceeded for ${plan} plan`,
-      keyGenerator: (req) => tenantId,
+      keyGenerator: (_req) => tenantId,
     });
 
     this.rateLimiters.set(tenantId, limiter);
@@ -638,19 +595,12 @@ export class SelfServeIngress {
   }
 
   private getApiKeysCount(tenantId: string): number {
-    return Array.from(this.apiKeys.values()).filter(
-      (key) => key.tenant_id === tenantId,
-    ).length;
+    return Array.from(this.apiKeys.values()).filter((key) => key.tenant_id === tenantId).length;
   }
 
-  private async sendWelcomeEmail(
-    tenant: Tenant,
-    apiKey: ApiKey,
-  ): Promise<void> {
+  private async sendWelcomeEmail(tenant: Tenant, _apiKey: ApiKey): Promise<void> {
     // In real implementation, send actual email
-    console.log(
-      `Welcome email sent to ${tenant.email} for tenant ${tenant.id}`,
-    );
+    console.log(`Welcome email sent to ${tenant.email} for tenant ${tenant.id}`);
   }
 
   private generateMiddlewareExample(type: string): string {
@@ -669,7 +619,7 @@ export class SelfServeIngress {
     return /^pf_[a-f0-9]{64}$/.test(signature);
   }
 
-  private async verifyPfSig(signature: string, data: any): Promise<boolean> {
+  private async verifyPfSig(signature: string, _data: unknown): Promise<boolean> {
     // In real implementation, verify cryptographic signature
     return signature.startsWith("pf_") && signature.length === 67;
   }
@@ -713,10 +663,7 @@ export class SelfServeIngress {
   }
 
   // New validation handler with enhanced middleware
-  private async handleValidateRequest(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async handleValidateRequest(req: express.Request, res: express.Response): Promise<void> {
     try {
       // At this point, validation middleware has already passed
       // and tenant rate limiting has been applied
@@ -756,8 +703,7 @@ export class SelfServeIngress {
         res.status(400).json({
           error: {
             code: "INVALID_REQUEST",
-            message:
-              "Missing required fields: tenant, user_id, capabilities, expires_in",
+            message: "Missing required fields: tenant, user_id, capabilities, expires_in",
           },
         });
         return;
@@ -786,22 +732,11 @@ export class SelfServeIngress {
   }
 
   // Generate test access receipt
-  private async handleGenerateReceipt(
-    req: express.Request,
-    res: express.Response,
-  ): Promise<void> {
+  private async handleGenerateReceipt(req: express.Request, res: express.Response): Promise<void> {
     try {
-      const { tenant, subject, shard, query_hash, result_hash, expires_in } =
-        req.body;
+      const { tenant, subject, shard, query_hash, result_hash, expires_in } = req.body;
 
-      if (
-        !tenant ||
-        !subject ||
-        !shard ||
-        !query_hash ||
-        !result_hash ||
-        !expires_in
-      ) {
+      if (!tenant || !subject || !shard || !query_hash || !result_hash || !expires_in) {
         res.status(400).json({
           error: {
             code: "INVALID_REQUEST",

@@ -9,11 +9,7 @@ import { ValidationMiddleware } from "./middleware/validation";
 
 // Initialize logger
 const logger = createLogger({
-  format: format.combine(
-    format.timestamp(),
-    format.errors({ stack: true }),
-    format.json(),
-  ),
+  format: format.combine(format.timestamp(), format.errors({ stack: true }), format.json()),
   transports: [
     new transports.Console({
       format: format.combine(format.colorize(), format.simple()),
@@ -37,9 +33,11 @@ const limiter = rateLimit({
 });
 
 // Initialize validation middleware
-const validationMiddleware = new ValidationMiddleware(
-  process.env.PF_SIGNATURE_SECRET || "default-secret-key-change-in-production"
-);
+const signatureSecret = process.env.PF_SIGNATURE_SECRET;
+if (!signatureSecret && process.env.NODE_ENV !== "test") {
+  throw new Error("PF_SIGNATURE_SECRET must be set for non-test environments");
+}
+const validationMiddleware = new ValidationMiddleware(signatureSecret || "test-signature-secret");
 
 // Middleware
 app.use(helmet());
@@ -92,17 +90,10 @@ app.all("/api/*", (req, res) => {
 });
 
 // Error handling middleware
-app.use(
-  (
-    err: any,
-    req: express.Request,
-    res: express.Response,
-    next: express.NextFunction,
-  ) => {
-    logger.error("Unhandled error", { error: err });
-    res.status(500).json({ error: "Internal server error" });
-  },
-);
+app.use((err: any, req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  logger.error("Unhandled error", { error: err });
+  res.status(500).json({ error: "Internal server error" });
+});
 
 // Start server
 app.listen(port, () => {

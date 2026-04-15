@@ -1,5 +1,4 @@
 import { createHash } from "crypto";
-import { Plan, PlanStep, ExecutionContext } from "./types";
 
 // Semantic Cache Module
 // Caches low-risk answers with receipt hash keys for efficient retrieval
@@ -33,6 +32,9 @@ export interface CacheMetadata {
   max_access_count: number;
   compression_ratio?: number;
   encryption_enabled: boolean;
+  created_at?: string;
+  accessed_at?: string;
+  last_modified?: string;
 }
 
 export interface CacheQuery {
@@ -79,7 +81,7 @@ export class SemanticCache {
   private indexByTenant: Map<string, Set<string>> = new Map();
   private indexByRiskLevel: Map<string, Set<string>> = new Map();
   private indexByLabels: Map<string, Set<string>> = new Map();
-  
+
   private evictionPolicy: CacheEvictionPolicy;
   private stats = {
     hits: 0,
@@ -115,11 +117,11 @@ export class SemanticCache {
     content: string,
     receipt: string,
     response: any,
-    metadata: Omit<CacheMetadata, "created_at" | "accessed_at" | "last_modified">
+    metadata: Omit<CacheMetadata, "created_at" | "accessed_at" | "last_modified">,
   ): Promise<void> {
     const contentHash = this.hashContent(content);
     const receiptHash = this.hashReceipt(receipt);
-    
+
     // Check if entry already exists
     if (this.cache.has(key)) {
       await this.delete(key);
@@ -142,6 +144,7 @@ export class SemanticCache {
       accessed_at: now.toISOString(),
       expires_at: new Date(now.getTime() + metadata.ttl_seconds * 1000).toISOString(),
       access_count: 0,
+      last_modified: now.toISOString(),
     };
 
     // Compress response if enabled
@@ -159,7 +162,7 @@ export class SemanticCache {
     // Store entry
     this.cache.set(key, entry);
     this.updateIndexes(key, entry);
-    
+
     // Update stats
     this.stats.sets++;
     this.stats.total_size_bytes += this.calculateEntrySize(entry);
@@ -173,7 +176,7 @@ export class SemanticCache {
    */
   async get(key: string): Promise<CacheEntry | null> {
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       this.stats.misses++;
       return null;
@@ -217,10 +220,10 @@ export class SemanticCache {
     if (query.content_hash) {
       const keys = this.indexByContentHash.get(query.content_hash) || new Set();
       if (firstIndex) {
-        keys.forEach(key => candidateKeys.add(key));
+        keys.forEach((key) => candidateKeys.add(key));
         firstIndex = false;
       } else {
-        candidateKeys.forEach(key => {
+        candidateKeys.forEach((key) => {
           if (!keys.has(key)) candidateKeys.delete(key);
         });
       }
@@ -229,10 +232,10 @@ export class SemanticCache {
     if (query.receipt_hash) {
       const keys = this.indexByReceiptHash.get(query.receipt_hash) || new Set();
       if (firstIndex) {
-        keys.forEach(key => candidateKeys.add(key));
+        keys.forEach((key) => candidateKeys.add(key));
         firstIndex = false;
       } else {
-        candidateKeys.forEach(key => {
+        candidateKeys.forEach((key) => {
           if (!keys.has(key)) candidateKeys.delete(key);
         });
       }
@@ -241,10 +244,10 @@ export class SemanticCache {
     if (query.tenant) {
       const keys = this.indexByTenant.get(query.tenant) || new Set();
       if (firstIndex) {
-        keys.forEach(key => candidateKeys.add(key));
+        keys.forEach((key) => candidateKeys.add(key));
         firstIndex = false;
       } else {
-        candidateKeys.forEach(key => {
+        candidateKeys.forEach((key) => {
           if (!keys.has(key)) candidateKeys.delete(key);
         });
       }
@@ -253,23 +256,23 @@ export class SemanticCache {
     if (query.risk_level) {
       const keys = this.indexByRiskLevel.get(query.risk_level) || new Set();
       if (firstIndex) {
-        keys.forEach(key => candidateKeys.add(key));
+        keys.forEach((key) => candidateKeys.add(key));
         firstIndex = false;
       } else {
-        candidateKeys.forEach(key => {
+        candidateKeys.forEach((key) => {
           if (!keys.has(key)) candidateKeys.delete(key);
         });
       }
     }
 
     if (query.labels && query.labels.length > 0) {
-      query.labels.forEach(label => {
+      query.labels.forEach((label) => {
         const keys = this.indexByLabels.get(label) || new Set();
         if (firstIndex) {
-          keys.forEach(key => candidateKeys.add(key));
+          keys.forEach((key) => candidateKeys.add(key));
           firstIndex = false;
         } else {
-          candidateKeys.forEach(key => {
+          candidateKeys.forEach((key) => {
             if (!keys.has(key)) candidateKeys.delete(key);
           });
         }
@@ -304,10 +307,10 @@ export class SemanticCache {
 
     // Remove from main cache
     this.cache.delete(key);
-    
+
     // Remove from indexes
     this.removeFromIndexes(key, entry);
-    
+
     // Update stats
     this.stats.deletes++;
     this.stats.total_size_bytes -= this.calculateEntrySize(entry);
@@ -325,7 +328,7 @@ export class SemanticCache {
     this.indexByTenant.clear();
     this.indexByRiskLevel.clear();
     this.indexByLabels.clear();
-    
+
     this.stats.total_size_bytes = 0;
   }
 
@@ -336,26 +339,26 @@ export class SemanticCache {
     const totalEntries = this.cache.size;
     const hitRate = totalEntries > 0 ? this.stats.hits / (this.stats.hits + this.stats.misses) : 0;
     const missRate = 1 - hitRate;
-    
+
     const entriesByRisk: Record<string, number> = {};
     const entriesByTenant: Record<string, number> = {};
     const entriesByType: Record<string, number> = {};
-    
+
     let totalTtl = 0;
-    
-    this.cache.forEach(entry => {
+
+    this.cache.forEach((entry) => {
       // Count by risk level
       const risk = entry.metadata.risk_level;
       entriesByRisk[risk] = (entriesByRisk[risk] || 0) + 1;
-      
+
       // Count by tenant
       const tenant = entry.metadata.tenant;
       entriesByTenant[tenant] = (entriesByTenant[tenant] || 0) + 1;
-      
+
       // Count by content type
       const type = entry.metadata.content_type;
       entriesByType[type] = (entriesByType[type] || 0) + 1;
-      
+
       totalTtl += entry.metadata.ttl_seconds;
     });
 
@@ -402,7 +405,7 @@ export class SemanticCache {
     this.indexByRiskLevel.get(entry.metadata.risk_level)!.add(key);
 
     // Index by labels
-    entry.metadata.labels.forEach(label => {
+    entry.metadata.labels.forEach((label) => {
       if (!this.indexByLabels.has(label)) {
         this.indexByLabels.set(label, new Set());
       }
@@ -451,7 +454,7 @@ export class SemanticCache {
     }
 
     // Remove from labels index
-    entry.metadata.labels.forEach(label => {
+    entry.metadata.labels.forEach((label) => {
       const labelSet = this.indexByLabels.get(label);
       if (labelSet) {
         labelSet.delete(key);
@@ -474,19 +477,19 @@ export class SemanticCache {
     if (query.step_id && entry.metadata.step_id !== query.step_id) return false;
     if (query.risk_level && entry.metadata.risk_level !== query.risk_level) return false;
     if (query.content_type && entry.metadata.content_type !== query.content_type) return false;
-    
+
     if (query.max_age_seconds) {
       const age = (Date.now() - new Date(entry.created_at).getTime()) / 1000;
       if (age > query.max_age_seconds) return false;
     }
 
     if (query.labels && query.labels.length > 0) {
-      const hasAllLabels = query.labels.every(label => entry.metadata.labels.includes(label));
+      const hasAllLabels = query.labels.every((label) => entry.metadata.labels.includes(label));
       if (!hasAllLabels) return false;
     }
 
     if (query.tags && query.tags.length > 0) {
-      const hasAllTags = query.tags.every(tag => entry.metadata.tags.includes(tag));
+      const hasAllTags = query.tags.every((tag) => entry.metadata.tags.includes(tag));
       if (!hasAllTags) return false;
     }
 
@@ -504,7 +507,7 @@ export class SemanticCache {
    * Check if eviction is needed and perform it
    */
   private async checkEviction(): Promise<void> {
-    const needsEviction = 
+    const needsEviction =
       this.cache.size > this.evictionPolicy.max_entries ||
       this.stats.total_size_bytes > this.evictionPolicy.max_size_bytes;
 
@@ -522,13 +525,17 @@ export class SemanticCache {
 
     switch (this.evictionPolicy.priority) {
       case "lru":
-        entries.sort((a, b) => new Date(a[1].accessed_at).getTime() - new Date(b[1].accessed_at).getTime());
+        entries.sort(
+          (a, b) => new Date(a[1].accessed_at).getTime() - new Date(b[1].accessed_at).getTime(),
+        );
         break;
       case "lfu":
         entries.sort((a, b) => a[1].access_count - b[1].access_count);
         break;
       case "ttl":
-        entries.sort((a, b) => new Date(a[1].expires_at).getTime() - new Date(b[1].expires_at).getTime());
+        entries.sort(
+          (a, b) => new Date(a[1].expires_at).getTime() - new Date(b[1].expires_at).getTime(),
+        );
         break;
       case "hybrid":
         entries.sort((a, b) => {
@@ -540,9 +547,11 @@ export class SemanticCache {
     }
 
     // Evict entries until we're under limits
-    for (const [key, entry] of entries) {
-      if (this.cache.size <= this.evictionPolicy.max_entries * 0.8 &&
-          this.stats.total_size_bytes <= this.evictionPolicy.max_size_bytes * 0.8) {
+    for (const [key] of entries) {
+      if (
+        this.cache.size <= this.evictionPolicy.max_entries * 0.8 &&
+        this.stats.total_size_bytes <= this.evictionPolicy.max_size_bytes * 0.8
+      ) {
         break;
       }
 
@@ -561,25 +570,29 @@ export class SemanticCache {
     const age = (now - new Date(entry.created_at).getTime()) / 1000;
     const timeToExpiry = (new Date(entry.expires_at).getTime() - now) / 1000;
     const accessRate = entry.access_count / Math.max(age, 1);
-    
+
     // Lower score = higher priority for eviction
-    return (age * 0.4) + (1 / Math.max(accessRate, 0.1) * 0.3) + (1 / Math.max(timeToExpiry, 1) * 0.3);
+    return (
+      age * 0.4 + (1 / Math.max(accessRate, 0.1)) * 0.3 + (1 / Math.max(timeToExpiry, 1)) * 0.3
+    );
   }
 
   /**
    * Start background maintenance
    */
   private startMaintenance(): void {
-    setInterval(() => {
-      this.performMaintenance();
-    }, 5 * 60 * 1000); // Every 5 minutes
+    setInterval(
+      () => {
+        this.performMaintenance();
+      },
+      5 * 60 * 1000,
+    ); // Every 5 minutes
   }
 
   /**
    * Perform background maintenance
    */
   private async performMaintenance(): Promise<void> {
-    const now = new Date();
     const keysToDelete: string[] = [];
 
     // Find expired entries

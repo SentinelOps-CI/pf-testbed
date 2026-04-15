@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from "crypto";
+import { randomBytes } from "crypto";
 
 // Types for metering and billing
 export interface UsageMetrics {
@@ -198,8 +198,7 @@ export class MeteringService {
 
     // Calculate costs
     const cpu_cost = aggregated.cpu_ms * tier.cpu_price_per_ms;
-    const network_cost =
-      (aggregated.network_bytes / (1024 * 1024)) * tier.network_price_per_mb;
+    const network_cost = (aggregated.network_bytes / (1024 * 1024)) * tier.network_price_per_mb;
     const api_cost = aggregated.api_calls * tier.api_call_price;
     const tool_cost = aggregated.tool_executions * tier.tool_execution_price;
     const data_cost = aggregated.data_retrievals * tier.data_retrieval_price;
@@ -260,8 +259,7 @@ export class MeteringService {
       egress_scans: metrics.reduce((sum, m) => sum + m.egress_scans, 0),
       policy_checks: metrics.reduce((sum, m) => sum + m.policy_checks, 0),
       violations: metrics.reduce((sum, m) => sum + m.violations, 0),
-      avg_risk_score:
-        metrics.reduce((sum, m) => sum + m.risk_score, 0) / metrics.length,
+      avg_risk_score: metrics.reduce((sum, m) => sum + m.risk_score, 0) / metrics.length,
     };
   }
 
@@ -287,17 +285,19 @@ export class MeteringService {
   /**
    * Generate invoice for a tenant and period
    */
-  async generateInvoice(
-    tenantId: string,
-    period: string,
-  ): Promise<InvoiceData> {
+  async generateInvoice(tenantId: string, period: string): Promise<InvoiceData> {
     const costBreakdown = this.calculateCost(tenantId, period);
     const tenantKey = `${tenantId}_${period}`;
     const usageMetrics = this.usageStore.get(tenantKey) || [];
 
-    const [year, month] = period.split("-");
-    const periodStart = new Date(parseInt(year), parseInt(month) - 1, 1);
-    const periodEnd = new Date(parseInt(year), parseInt(month), 0);
+    const parts = period.split("-");
+    const year = parts[0];
+    const month = parts[1];
+    if (year === undefined || month === undefined) {
+      throw new Error(`Invalid billing period (expected YYYY-MM): ${period}`);
+    }
+    const periodStart = new Date(parseInt(year, 10), parseInt(month, 10) - 1, 1);
+    const periodEnd = new Date(parseInt(year, 10), parseInt(month, 10), 0);
 
     const invoice: InvoiceData = {
       invoice_id: this.generateInvoiceId(),
@@ -308,9 +308,7 @@ export class MeteringService {
       cost_breakdown: costBreakdown,
       status: "draft",
       created_at: new Date().toISOString(),
-      due_date: new Date(
-        periodEnd.getTime() + 30 * 24 * 60 * 60 * 1000,
-      ).toISOString(), // 30 days after period end
+      due_date: new Date(periodEnd.getTime() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days after period end
     };
 
     // Store invoice
@@ -370,7 +368,7 @@ export class MeteringService {
     const metrics: string[] = [];
 
     for (const [tenantKey, usageList] of this.usageStore) {
-      const [tenantId, period] = tenantKey.split("_");
+      const [tenantId] = tenantKey.split("_");
 
       for (const usage of usageList) {
         metrics.push(`# HELP pf_usage_cpu_ms CPU usage in milliseconds`);
@@ -449,7 +447,7 @@ export class MeteringService {
   /**
    * Update billing tier for a tenant (placeholder for real implementation)
    */
-  updateTenantBillingTier(tenantId: string, tierName: string): boolean {
+  updateTenantBillingTier(_tenantId: string, tierName: string): boolean {
     // This would update tenant billing tier in database
     // For now, just validate the tier exists
     return this.billingTiers.has(tierName);

@@ -5,7 +5,7 @@
 .PHONY: build test lint format security-check quality-check
 .PHONY: docker-build docker-run docker-stop docker-clean
 .PHONY: up down status logs seed soak redteam evidence metering
-.PHONY: ci cd deploy clean
+.PHONY: ci cd deploy clean verify
 
 # Detect OS and set appropriate commands
 ifeq ($(OS),Windows_NT)
@@ -243,6 +243,9 @@ metering: deps ## Generate billing and usage reports
 # CI/CD Commands
 ci: quality-check ## Run CI pipeline locally
 	@echo "🔄 CI pipeline completed successfully"
+
+verify: ci ## Verification entrypoint for CI workflows
+	@echo "✅ Verification checks passed"
 
 cd: ci ## Run CD pipeline locally
 	@echo "🚀 CD pipeline completed successfully"

@@ -1,8 +1,4 @@
-import {
-  ToolCall,
-  ToolResult,
-  ToolTrace,
-} from "../../runtime/gateway/src/types";
+import { ToolCall, ToolResult, ToolTrace } from "../../contracts/types";
 
 /**
  * Base interface for all tool emulators
@@ -193,8 +189,7 @@ export abstract class BaseToolEmulator implements ToolEmulator {
       if (windowStart === this.rateLimitWindow.start) {
         rateLimitRemaining = Math.max(
           0,
-          this.config.rate_limit.requests_per_minute -
-            this.rateLimitWindow.count,
+          this.config.rate_limit.requests_per_minute - this.rateLimitWindow.count,
         );
       } else {
         rateLimitRemaining = this.config.rate_limit.requests_per_minute;
@@ -206,8 +201,7 @@ export abstract class BaseToolEmulator implements ToolEmulator {
       mode: this.config.mode,
       uptime,
       total_calls: this.totalCalls,
-      success_rate:
-        this.totalCalls > 0 ? this.successfulCalls / this.totalCalls : 1,
+      success_rate: this.totalCalls > 0 ? this.successfulCalls / this.totalCalls : 1,
       last_call: new Date(this.lastCallTime).toISOString(),
       rate_limit_remaining: rateLimitRemaining,
     };
@@ -271,9 +265,7 @@ export abstract class BaseToolEmulator implements ToolEmulator {
       return true;
     }
 
-    if (
-      this.rateLimitWindow.count >= this.config.rate_limit.requests_per_minute
-    ) {
+    if (this.rateLimitWindow.count >= this.config.rate_limit.requests_per_minute) {
       return false;
     }
 

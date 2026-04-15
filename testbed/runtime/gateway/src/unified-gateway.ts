@@ -8,7 +8,6 @@ import {
 } from "./types";
 import { TestbedMetrics } from "./metrics";
 
-
 // Unified trace export schema
 export interface NormalizedTrace {
   plan_id: string;
@@ -93,9 +92,7 @@ export class UnifiedGateway {
       // Verify plan
       const verification = await agent.verifyPlan(plan);
       if (!verification.valid) {
-        throw new Error(
-          `Plan validation failed: ${verification.errors.join(", ")}`,
-        );
+        throw new Error(`Plan validation failed: ${verification.errors.join(", ")}`);
       }
 
       // Execute plan
@@ -106,22 +103,14 @@ export class UnifiedGateway {
       this.metrics.recordPlanExecution(plan.tenant, plan.journey, "completed");
 
       // Generate normalized trace
-      const trace = await this.generateNormalizedTrace(
-        stack,
-        executedPlan,
-        context,
-        executionTime,
-      );
+      const trace = await this.generateNormalizedTrace(stack, executedPlan, context, executionTime);
 
       return {
         success: true,
         plan_id: plan.id,
         execution_time: executionTime,
-        steps_completed: executedPlan.steps.filter(
-          (s) => s.status === "completed",
-        ).length,
-        steps_failed: executedPlan.steps.filter((s) => s.status === "failed")
-          .length,
+        steps_completed: executedPlan.steps.filter((s) => s.status === "completed").length,
+        steps_failed: executedPlan.steps.filter((s) => s.status === "failed").length,
         final_result: executedPlan,
         traces: [trace],
         receipts: verification.receipts.map((r) => ({
@@ -133,18 +122,13 @@ export class UnifiedGateway {
           result_hash: "unknown",
           nonce: "unknown",
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          signature: "unknown"
+          signature: "unknown",
         })),
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
       const executionTime = Date.now() - startTime;
-      this.metrics.recordError(
-        plan.tenant,
-        plan.journey,
-        "execution_error",
-        "high"
-      );
+      this.metrics.recordError(plan.tenant, plan.journey, "execution_error", "high");
 
       return {
         success: false,
@@ -208,7 +192,7 @@ export class UnifiedGateway {
           result_hash: "unknown",
           nonce: "unknown",
           expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          signature: "unknown"
+          signature: "unknown",
         })),
       cert_id: certId,
       timings: {
@@ -221,9 +205,7 @@ export class UnifiedGateway {
         model: plan.metadata.model,
         confidence: plan.metadata.confidence,
         risk_level: plan.metadata.risk_level,
-        capabilities_used: plan.steps
-          .filter((s) => s.capability)
-          .map((s) => s.capability!),
+        capabilities_used: plan.steps.filter((s) => s.capability).map((s) => s.capability!),
         shadow_mode: !this.enforceMode,
         enforce_policies: this.enforceMode,
       },
@@ -233,10 +215,7 @@ export class UnifiedGateway {
   /**
    * Generate unique capability token ID
    */
-  private generateCapabilityTokenId(
-    plan: Plan,
-    context: ExecutionContext,
-  ): string {
+  private generateCapabilityTokenId(plan: Plan, context: ExecutionContext): string {
     const components = [
       plan.tenant,
       plan.journey,
@@ -295,10 +274,7 @@ export class UnifiedGateway {
   /**
    * Export all traces for a specific journey across all stacks
    */
-  async exportJourneyTraces(
-    _journey: string,
-    _tenant: string,
-  ): Promise<NormalizedTrace[]> {
+  async exportJourneyTraces(_journey: string, _tenant: string): Promise<NormalizedTrace[]> {
     const traces: NormalizedTrace[] = [];
 
     // This would typically query a database or storage system

@@ -1,10 +1,7 @@
 #!/usr/bin/env ts-node
 
 import { Command } from "commander";
-import {
-  MeteringService,
-  StripeConfig,
-} from "../../runtime/gateway/src/metering";
+import { MeteringService, StripeConfig } from "../../runtime/gateway/src/metering";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -40,9 +37,7 @@ program
   .option("--stripe", "Enable Stripe integration")
   .action(async (tenantId: string, period: string, options: any) => {
     try {
-      console.log(
-        `📊 Generating invoice for tenant ${tenantId} for period ${period}...`,
-      );
+      console.log(`📊 Generating invoice for tenant ${tenantId} for period ${period}...`);
 
       const invoice = await meteringService.generateInvoice(tenantId, period);
 
@@ -54,66 +49,33 @@ program
         console.log("\n📄 INVOICE DETAILS:");
         console.log(`  Invoice ID: ${invoice.invoice_id}`);
         console.log(`  Tenant: ${invoice.tenant_id}`);
-        console.log(
-          `  Period: ${invoice.period_start} to ${invoice.period_end}`,
-        );
+        console.log(`  Period: ${invoice.period_start} to ${invoice.period_end}`);
         console.log(`  Status: ${invoice.status}`);
         console.log(`  Due Date: ${invoice.due_date}`);
-        console.log(
-          `  Total Cost: $${invoice.cost_breakdown.total_cost.toFixed(2)}`,
-        );
+        console.log(`  Total Cost: $${invoice.cost_breakdown.total_cost.toFixed(2)}`);
 
         if (invoice.stripe_invoice_id) {
           console.log(`  Stripe Invoice: ${invoice.stripe_invoice_id}`);
         }
 
         console.log("\n💰 COST BREAKDOWN:");
-        console.log(
-          `  Base Cost: $${invoice.cost_breakdown.base_cost.toFixed(2)}`,
-        );
-        console.log(
-          `  CPU Cost: $${invoice.cost_breakdown.cpu_cost.toFixed(4)}`,
-        );
-        console.log(
-          `  Network Cost: $${invoice.cost_breakdown.network_cost.toFixed(4)}`,
-        );
-        console.log(
-          `  API Cost: $${invoice.cost_breakdown.api_cost.toFixed(4)}`,
-        );
-        console.log(
-          `  Tool Cost: $${invoice.cost_breakdown.tool_cost.toFixed(4)}`,
-        );
-        console.log(
-          `  Data Cost: $${invoice.cost_breakdown.data_cost.toFixed(4)}`,
-        );
-        console.log(
-          `  Egress Cost: $${invoice.cost_breakdown.egress_cost.toFixed(4)}`,
-        );
-        console.log(
-          `  Policy Cost: $${invoice.cost_breakdown.policy_cost.toFixed(4)}`,
-        );
-        console.log(
-          `  Violation Cost: $${invoice.cost_breakdown.violation_cost.toFixed(4)}`,
-        );
-        console.log(
-          `  Risk Adjustment: $${invoice.cost_breakdown.risk_adjustment.toFixed(4)}`,
-        );
+        console.log(`  Base Cost: $${invoice.cost_breakdown.base_cost.toFixed(2)}`);
+        console.log(`  CPU Cost: $${invoice.cost_breakdown.cpu_cost.toFixed(4)}`);
+        console.log(`  Network Cost: $${invoice.cost_breakdown.network_cost.toFixed(4)}`);
+        console.log(`  API Cost: $${invoice.cost_breakdown.api_cost.toFixed(4)}`);
+        console.log(`  Tool Cost: $${invoice.cost_breakdown.tool_cost.toFixed(4)}`);
+        console.log(`  Data Cost: $${invoice.cost_breakdown.data_cost.toFixed(4)}`);
+        console.log(`  Egress Cost: $${invoice.cost_breakdown.egress_cost.toFixed(4)}`);
+        console.log(`  Policy Cost: $${invoice.cost_breakdown.policy_cost.toFixed(4)}`);
+        console.log(`  Violation Cost: $${invoice.cost_breakdown.violation_cost.toFixed(4)}`);
+        console.log(`  Risk Adjustment: $${invoice.cost_breakdown.risk_adjustment.toFixed(4)}`);
 
         console.log(`\n📊 USAGE SUMMARY:`);
         console.log(`  Total Sessions: ${invoice.usage_metrics.length}`);
         if (invoice.usage_metrics.length > 0) {
-          const totalCpu = invoice.usage_metrics.reduce(
-            (sum, m) => sum + m.cpu_ms,
-            0,
-          );
-          const totalNetwork = invoice.usage_metrics.reduce(
-            (sum, m) => sum + m.network_bytes,
-            0,
-          );
-          const totalApiCalls = invoice.usage_metrics.reduce(
-            (sum, m) => sum + m.api_calls,
-            0,
-          );
+          const totalCpu = invoice.usage_metrics.reduce((sum, m) => sum + m.cpu_ms, 0);
+          const totalNetwork = invoice.usage_metrics.reduce((sum, m) => sum + m.network_bytes, 0);
+          const totalApiCalls = invoice.usage_metrics.reduce((sum, m) => sum + m.api_calls, 0);
           const totalToolExecutions = invoice.usage_metrics.reduce(
             (sum, m) => sum + m.tool_executions,
             0,
@@ -122,15 +84,10 @@ program
             (sum, m) => sum + m.data_retrievals,
             0,
           );
-          const totalViolations = invoice.usage_metrics.reduce(
-            (sum, m) => sum + m.violations,
-            0,
-          );
+          const totalViolations = invoice.usage_metrics.reduce((sum, m) => sum + m.violations, 0);
 
           console.log(`  Total CPU: ${(totalCpu / 1000).toFixed(2)}s`);
-          console.log(
-            `  Total Network: ${(totalNetwork / (1024 * 1024)).toFixed(2)} MB`,
-          );
+          console.log(`  Total Network: ${(totalNetwork / (1024 * 1024)).toFixed(2)} MB`);
           console.log(`  Total API Calls: ${totalApiCalls}`);
           console.log(`  Total Tool Executions: ${totalToolExecutions}`);
           console.log(`  Total Data Retrievals: ${totalDataRetrievals}`);
@@ -153,9 +110,7 @@ program
   .option("-o, --output <file>", "Output file")
   .action((tenantId: string, period: string, options: any) => {
     try {
-      console.log(
-        `📊 Usage metrics for tenant ${tenantId} for period ${period}...`,
-      );
+      console.log(`📊 Usage metrics for tenant ${tenantId} for period ${period}...`);
 
       const metrics = meteringService.getUsageMetrics(tenantId, period);
 
@@ -215,13 +170,9 @@ program
         console.log("\n📄 INVOICES:");
         invoices.forEach((invoice, index) => {
           console.log(`\n  ${index + 1}. Invoice ${invoice.invoice_id}`);
-          console.log(
-            `     Period: ${invoice.period_start} to ${invoice.period_end}`,
-          );
+          console.log(`     Period: ${invoice.period_start} to ${invoice.period_end}`);
           console.log(`     Status: ${invoice.status}`);
-          console.log(
-            `     Total Cost: $${invoice.cost_breakdown.total_cost.toFixed(2)}`,
-          );
+          console.log(`     Total Cost: $${invoice.cost_breakdown.total_cost.toFixed(2)}`);
           console.log(`     Created: ${invoice.created_at}`);
           console.log(`     Due Date: ${invoice.due_date}`);
         });
@@ -275,27 +226,17 @@ program
         tiers.forEach((tier, index) => {
           console.log(`\n  ${index + 1}. ${tier.name} Tier`);
           console.log(`     Base Price: $${tier.base_price_usd}/month`);
-          console.log(
-            `     CPU: $${(tier.cpu_price_per_ms * 3600000).toFixed(2)}/hour`,
-          );
+          console.log(`     CPU: $${(tier.cpu_price_per_ms * 3600000).toFixed(2)}/hour`);
           console.log(`     Network: $${tier.network_price_per_mb}/MB`);
           console.log(`     API Calls: $${tier.api_call_price}/call`);
-          console.log(
-            `     Tool Executions: $${tier.tool_execution_price}/execution`,
-          );
-          console.log(
-            `     Data Retrievals: $${tier.data_retrieval_price}/retrieval`,
-          );
+          console.log(`     Tool Executions: $${tier.tool_execution_price}/execution`);
+          console.log(`     Data Retrievals: $${tier.data_retrieval_price}/retrieval`);
           console.log(`     Risk Multiplier: ${tier.risk_multiplier}x`);
 
           console.log(`     Monthly Quotas:`);
-          console.log(
-            `       CPU: ${(tier.monthly_quota.cpu_ms / 3600000).toFixed(1)} hours`,
-          );
+          console.log(`       CPU: ${(tier.monthly_quota.cpu_ms / 3600000).toFixed(1)} hours`);
           console.log(`       Network: ${tier.monthly_quota.network_mb} MB`);
-          console.log(
-            `       API Calls: ${tier.monthly_quota.api_calls.toLocaleString()}`,
-          );
+          console.log(`       API Calls: ${tier.monthly_quota.api_calls.toLocaleString()}`);
           console.log(
             `       Tool Executions: ${tier.monthly_quota.tool_executions.toLocaleString()}`,
           );
@@ -320,9 +261,7 @@ program
   .action((tenantId: string, sessions: string, options: any) => {
     try {
       const sessionCount = parseInt(sessions);
-      console.log(
-        `🎭 Simulating ${sessionCount} sessions for tenant ${tenantId}...`,
-      );
+      console.log(`🎭 Simulating ${sessionCount} sessions for tenant ${tenantId}...`);
 
       for (let i = 0; i < sessionCount; i++) {
         const metrics = {
@@ -417,24 +356,15 @@ function displayUsageTable(metrics: any[]): void {
   const totalCpu = metrics.reduce((sum, m) => sum + m.cpu_ms, 0);
   const totalNetwork = metrics.reduce((sum, m) => sum + m.network_bytes, 0);
   const totalApiCalls = metrics.reduce((sum, m) => sum + m.api_calls, 0);
-  const totalToolExecutions = metrics.reduce(
-    (sum, m) => sum + m.tool_executions,
-    0,
-  );
-  const totalDataRetrievals = metrics.reduce(
-    (sum, m) => sum + m.data_retrievals,
-    0,
-  );
+  const totalToolExecutions = metrics.reduce((sum, m) => sum + m.tool_executions, 0);
+  const totalDataRetrievals = metrics.reduce((sum, m) => sum + m.data_retrievals, 0);
   const totalViolations = metrics.reduce((sum, m) => sum + m.violations, 0);
-  const avgRiskScore =
-    metrics.reduce((sum, m) => sum + m.risk_score, 0) / metrics.length;
+  const avgRiskScore = metrics.reduce((sum, m) => sum + m.risk_score, 0) / metrics.length;
 
   console.log("\n📈 SUMMARY STATISTICS:");
   console.log(`  Total Sessions: ${metrics.length}`);
   console.log(`  Total CPU: ${(totalCpu / 1000).toFixed(2)}s`);
-  console.log(
-    `  Total Network: ${(totalNetwork / (1024 * 1024)).toFixed(2)} MB`,
-  );
+  console.log(`  Total Network: ${(totalNetwork / (1024 * 1024)).toFixed(2)} MB`);
   console.log(`  Total API Calls: ${totalApiCalls}`);
   console.log(`  Total Tool Executions: ${totalToolExecutions}`);
   console.log(`  Total Data Retrievals: ${totalDataRetrievals}`);

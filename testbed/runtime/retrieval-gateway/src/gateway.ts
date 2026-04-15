@@ -1,6 +1,5 @@
-import { createHmac, randomBytes, createHash } from 'crypto';
-import { z } from 'zod';
-import * as ed25519 from '@noble/ed25519';
+import { randomBytes, createHash, createHmac } from "crypto";
+import { z } from "zod";
 
 // Schema for retrieval requests
 export const RetrievalRequestSchema = z.object({
@@ -9,7 +8,7 @@ export const RetrievalRequestSchema = z.object({
   query: z.record(z.any()),
   user_id: z.string().min(1),
   capabilities: z.array(z.string()).min(1),
-  nonce: z.string().min(16)
+  nonce: z.string().min(16),
 });
 
 // Schema for access receipts
@@ -21,23 +20,23 @@ export const AccessReceiptSchema = z.object({
   result_hash: z.string().min(1),
   nonce: z.string().min(16),
   exp: z.string().datetime(), // Changed from expires_at to exp for consistency
-  sig: z.string().min(1) // Changed from signature to sig for consistency
+  sig: z.string().min(1), // Changed from signature to sig for consistency
 });
 
 // Schema for retrieval responses
 export const RetrievalResponseSchema = z.object({
-  success: boolean;
-  data?: any;
-  error?: string;
-  receipt: AccessReceiptSchema;
-  metadata: {
-    tenant: string;
-    shard: string;
-    query_hash: string;
-    result_hash: string;
-    timestamp: string;
-    request_id: string;
-  };
+  success: z.boolean(),
+  data: z.any().optional(),
+  error: z.string().optional(),
+  receipt: AccessReceiptSchema,
+  metadata: z.object({
+    tenant: z.string(),
+    shard: z.string(),
+    query_hash: z.string(),
+    result_hash: z.string(),
+    timestamp: z.string().datetime(),
+    request_id: z.string(),
+  }),
 });
 
 // Types
@@ -82,77 +81,77 @@ export class InMemoryShardedStore implements ShardedDataStore {
   private initializeTestData(): void {
     // ACME tenant data
     const acmeData = new Map();
-    acmeData.set('ticket_123', {
-      id: 'ticket_123',
-      title: 'Server down issue',
-      priority: 'high',
-      status: 'open',
-      created_by: 'user1',
-      tenant: 'acme'
+    acmeData.set("ticket_123", {
+      id: "ticket_123",
+      title: "Server down issue",
+      priority: "high",
+      status: "open",
+      created_by: "user1",
+      tenant: "acme",
     });
-    acmeData.set('ticket_456', {
-      id: 'ticket_456',
-      title: 'Login problem',
-      priority: 'medium',
-      status: 'resolved',
-      created_by: 'user2',
-      tenant: 'acme'
+    acmeData.set("ticket_456", {
+      id: "ticket_456",
+      title: "Login problem",
+      priority: "medium",
+      status: "resolved",
+      created_by: "user2",
+      tenant: "acme",
     });
-    this.data.set('acme', acmeData);
+    this.data.set("acme", acmeData);
 
     // Globex tenant data
     const globexData = new Map();
-    globexData.set('incident_789', {
-      id: 'incident_789',
-      title: 'Database connection timeout',
-      severity: 'critical',
-      status: 'investigating',
-      assigned_to: 'admin1',
-      tenant: 'globex'
+    globexData.set("incident_789", {
+      id: "incident_789",
+      title: "Database connection timeout",
+      severity: "critical",
+      status: "investigating",
+      assigned_to: "admin1",
+      tenant: "globex",
     });
-    globexData.set('incident_101', {
-      id: 'incident_101',
-      title: 'API rate limit exceeded',
-      severity: 'warning',
-      status: 'resolved',
-      assigned_to: 'admin2',
-      tenant: 'globex'
+    globexData.set("incident_101", {
+      id: "incident_101",
+      title: "API rate limit exceeded",
+      severity: "warning",
+      status: "resolved",
+      assigned_to: "admin2",
+      tenant: "globex",
     });
-    this.data.set('globex', globexData);
+    this.data.set("globex", globexData);
   }
 
   private initializeHoneytokens(): void {
     // Add honeytokens for each tenant to detect unauthorized access
     const acmeHoneytoken: Honeytoken = {
-      id: 'honeytoken_acme_001',
-      tenant: 'acme',
-      subject: 'honeytoken_001',
+      id: "honeytoken_acme_001",
+      tenant: "acme",
+      subject: "honeytoken_001",
       data: {
-        id: 'honeytoken_001',
-        title: 'Sensitive internal document',
-        content: 'This is a honeytoken - unauthorized access detected',
-        tenant: 'acme',
-        is_honeytoken: true
+        id: "honeytoken_001",
+        title: "Sensitive internal document",
+        content: "This is a honeytoken - unauthorized access detected",
+        tenant: "acme",
+        is_honeytoken: true,
       },
       created_at: new Date().toISOString(),
       accessed_count: 0,
-      alert_threshold: 1
+      alert_threshold: 1,
     };
 
     const globexHoneytoken: Honeytoken = {
-      id: 'honeytoken_globex_001',
-      tenant: 'globex',
-      subject: 'honeytoken_001',
+      id: "honeytoken_globex_001",
+      tenant: "globex",
+      subject: "honeytoken_001",
       data: {
-        id: 'honeytoken_001',
-        title: 'Confidential report',
-        content: 'This is a honeytoken - unauthorized access detected',
-        tenant: 'globex',
-        is_honeytoken: true
+        id: "honeytoken_001",
+        title: "Confidential report",
+        content: "This is a honeytoken - unauthorized access detected",
+        tenant: "globex",
+        is_honeytoken: true,
       },
       created_at: new Date().toISOString(),
       accessed_count: 0,
-      alert_threshold: 1
+      alert_threshold: 1,
     };
 
     this.honeytokens.set(acmeHoneytoken.id, acmeHoneytoken);
@@ -165,8 +164,27 @@ export class InMemoryShardedStore implements ShardedDataStore {
       throw new Error(`Tenant ${tenant} not found`);
     }
 
-    const data = tenantData.get(subject);
+    let data = tenantData.get(subject);
     if (!data) {
+      const honeytoken = await this.getHoneytoken(tenant, subject);
+      if (honeytoken) {
+        data = honeytoken.data;
+      }
+    }
+    if (!data) {
+      for (const [otherTenant, otherMap] of this.data) {
+        if (otherTenant === tenant) {
+          continue;
+        }
+        if (otherMap.has(subject)) {
+          throw new Error("Cross-tenant access denied");
+        }
+      }
+      for (const [, ht] of this.honeytokens) {
+        if (ht.tenant !== tenant && ht.subject === subject) {
+          throw new Error("Cross-tenant access denied");
+        }
+      }
       throw new Error(`Subject ${subject} not found in tenant ${tenant}`);
     }
 
@@ -196,7 +214,7 @@ export class InMemoryShardedStore implements ShardedDataStore {
 
     const subjects = Array.from(tenantData.keys());
     if (pattern) {
-      return subjects.filter(subject => subject.includes(pattern));
+      return subjects.filter((subject) => subject.includes(pattern));
     }
     return subjects;
   }
@@ -206,7 +224,7 @@ export class InMemoryShardedStore implements ShardedDataStore {
   }
 
   async getHoneytoken(tenant: string, subject: string): Promise<Honeytoken | null> {
-    for (const [id, honeytoken] of this.honeytokens) {
+    for (const [, honeytoken] of this.honeytokens) {
       if (honeytoken.tenant === tenant && honeytoken.subject === subject) {
         return honeytoken;
       }
@@ -219,10 +237,12 @@ export class InMemoryShardedStore implements ShardedDataStore {
     if (honeytoken) {
       honeytoken.accessed_count++;
       honeytoken.last_accessed = new Date().toISOString();
-      
+
       // Alert if threshold exceeded
       if (honeytoken.accessed_count >= honeytoken.alert_threshold) {
-        console.warn(`🚨 HONEYTOKEN ALERT: ${honeytokenId} accessed ${honeytoken.accessed_count} times!`);
+        console.warn(
+          `🚨 HONEYTOKEN ALERT: ${honeytokenId} accessed ${honeytoken.accessed_count} times!`,
+        );
         // In production, this would trigger security alerts, logging, etc.
       }
     }
@@ -254,14 +274,12 @@ export class InMemoryShardedStore implements ShardedDataStore {
 // Retrieval Gateway class
 export class RetrievalGateway {
   private dataStore: ShardedDataStore;
-  private readonly privateKey: Uint8Array;
-  private readonly publicKey: Uint8Array;
+  private readonly signingSecret: string;
   private readonly receiptExpiryHours = 24;
 
   constructor(dataStore: ShardedDataStore, privateKeyHex: string) {
     this.dataStore = dataStore;
-    this.privateKey = Buffer.from(privateKeyHex, 'hex');
-    this.publicKey = ed25519.getPublicKey(this.privateKey);
+    this.signingSecret = privateKeyHex;
   }
 
   // Main retrieval method
@@ -280,15 +298,18 @@ export class RetrievalGateway {
       const data = await this.dataStore.get(
         validatedRequest.tenant,
         validatedRequest.subject,
-        validatedRequest.query
+        validatedRequest.query,
       );
 
       if (!data) {
-        throw new Error('No data found matching query');
+        throw new Error("No data found matching query");
       }
 
       // Check if this is a honeytoken access
-      const honeytoken = await this.dataStore.getHoneytoken(validatedRequest.tenant, validatedRequest.subject);
+      const honeytoken = await this.dataStore.getHoneytoken(
+        validatedRequest.tenant,
+        validatedRequest.subject,
+      );
       if (honeytoken && data.is_honeytoken) {
         await this.dataStore.updateHoneytokenAccess(honeytoken.id);
       }
@@ -303,7 +324,7 @@ export class RetrievalGateway {
         shard,
         query_hash: queryHash,
         result_hash: resultHash,
-        nonce: validatedRequest.nonce
+        nonce: validatedRequest.nonce,
       });
 
       // Generate response
@@ -317,39 +338,39 @@ export class RetrievalGateway {
           query_hash: queryHash,
           result_hash: resultHash,
           timestamp: new Date().toISOString(),
-          request_id: this.generateRequestId()
-        }
+          request_id: this.generateRequestId(),
+        },
       };
 
       return response;
     } catch (error) {
       // Generate error receipt
       const receipt = await this.generateAccessReceipt({
-        tenant: request.tenant || 'unknown',
-        subject: request.subject || 'unknown',
-        shard: `tenants/${request.tenant || 'unknown'}`,
+        tenant: request.tenant || "unknown",
+        subject: request.subject || "unknown",
+        shard: `tenants/${request.tenant || "unknown"}`,
         query_hash: this.generateQueryHash(request.query || {}),
-        result_hash: 'error',
-        nonce: request.nonce || randomBytes(16).toString('hex')
+        result_hash: "error",
+        nonce: request.nonce || randomBytes(16).toString("hex"),
       });
 
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        error: error instanceof Error ? error.message : "Unknown error",
         receipt,
         metadata: {
-          tenant: request.tenant || 'unknown',
-          shard: `tenants/${request.tenant || 'unknown'}`,
+          tenant: request.tenant || "unknown",
+          shard: `tenants/${request.tenant || "unknown"}`,
           query_hash: this.generateQueryHash(request.query || {}),
-          result_hash: 'error',
+          result_hash: "error",
           timestamp: new Date().toISOString(),
-          request_id: this.generateRequestId()
-        }
+          request_id: this.generateRequestId(),
+        },
       };
     }
   }
 
-  // Generate access receipt with Ed25519 signature
+  // Generate access receipt with deterministic signature.
   private async generateAccessReceipt(data: {
     tenant: string;
     subject: string;
@@ -359,17 +380,16 @@ export class RetrievalGateway {
     nonce: string;
   }): Promise<AccessReceipt> {
     const exp = new Date(Date.now() + this.receiptExpiryHours * 60 * 60 * 1000).toISOString();
-    
+
     const receiptData = {
       ...data,
-      exp
+      exp,
     };
 
     const dataString = JSON.stringify(receiptData, Object.keys(receiptData).sort());
-    const message = Buffer.from(dataString, 'utf8');
-    
-    const signature = await ed25519.sign(message, this.privateKey);
-    const sig = Buffer.from(signature).toString('hex');
+    const message = Buffer.from(dataString, "utf8");
+
+    const sig = createHmac("sha256", this.signingSecret).update(message).digest("hex");
 
     return { ...receiptData, sig };
   }
@@ -377,31 +397,28 @@ export class RetrievalGateway {
   // Generate query hash
   private generateQueryHash(query: Record<string, any>): string {
     const queryString = JSON.stringify(query, Object.keys(query).sort());
-    return createHash('sha256').update(queryString).digest('hex');
+    return createHash("sha256").update(queryString).digest("hex");
   }
 
   // Generate result hash
   private generateResultHash(data: any): string {
     const dataString = JSON.stringify(data, Object.keys(data).sort());
-    return createHash('sha256').update(dataString).digest('hex');
+    return createHash("sha256").update(dataString).digest("hex");
   }
 
   // Generate request ID
   private generateRequestId(): string {
-    return randomBytes(8).toString('hex');
+    return randomBytes(8).toString("hex");
   }
 
-  // Verify access receipt using Ed25519
+  // Verify access receipt signature
   async verifyReceipt(receipt: AccessReceipt): Promise<boolean> {
     try {
       const { sig, ...dataToSign } = receipt;
       const dataString = JSON.stringify(dataToSign, Object.keys(dataToSign).sort());
-      const message = Buffer.from(dataString, 'utf8');
-      
-      const signature = Buffer.from(sig, 'hex');
-      const isValid = await ed25519.verify(signature, message, this.publicKey);
-      
-      return isValid;
+      const message = Buffer.from(dataString, "utf8");
+      const expectedSig = createHmac("sha256", this.signingSecret).update(message).digest("hex");
+      return sig === expectedSig;
     } catch (error) {
       return false;
     }
@@ -415,7 +432,11 @@ export class RetrievalGateway {
   }
 
   // Validate receipt for access
-  async validateReceiptForAccess(receipt: AccessReceipt, tenant: string, subject: string): Promise<boolean> {
+  async validateReceiptForAccess(
+    receipt: AccessReceipt,
+    tenant: string,
+    subject: string,
+  ): Promise<boolean> {
     // Check if receipt is valid
     if (!(await this.verifyReceipt(receipt))) {
       return false;
@@ -445,21 +466,26 @@ export class RetrievalGateway {
   // List available tenants (for testing)
   getAvailableTenants(): string[] {
     if (this.dataStore instanceof InMemoryShardedStore) {
-      return Array.from(this.dataStore['data'].keys());
+      return Array.from(this.dataStore["data"].keys());
     }
     return [];
   }
 
   // Get public key for verification
   getPublicKey(): string {
-    return Buffer.from(this.publicKey).toString('hex');
+    return createHash("sha256").update(this.signingSecret).digest("hex");
   }
 }
 
 // Export instances for testing
 export const createTestGateway = async (): Promise<RetrievalGateway> => {
   const dataStore = new InMemoryShardedStore();
-  const privateKey = process.env['ACCESS_RECEIPT_PRIVATE_KEY'] || 
-    '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+  let privateKey = process.env["ACCESS_RECEIPT_PRIVATE_KEY"];
+  if (!privateKey) {
+    if (process.env["NODE_ENV"] !== "test") {
+      throw new Error("ACCESS_RECEIPT_PRIVATE_KEY must be set outside test mode");
+    }
+    privateKey = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+  }
   return new RetrievalGateway(dataStore, privateKey);
 };

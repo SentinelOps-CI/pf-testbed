@@ -36,7 +36,12 @@ export interface DenialReason {
 
 export interface Refinement {
   id: string;
-  type: "capability_addition" | "receipt_verification" | "label_adjustment" | "policy_update" | "security_enhancement";
+  type:
+    | "capability_addition"
+    | "receipt_verification"
+    | "label_adjustment"
+    | "policy_update"
+    | "security_enhancement";
   description: string;
   priority: "low" | "medium" | "high" | "critical";
   required_changes: string[];
@@ -86,11 +91,11 @@ export class KernelValidator {
   async validatePlan(
     plan: Plan,
     context: ExecutionContext,
-    hints: ValidationHint[] = []
+    hints: ValidationHint[] = [],
   ): Promise<ValidationResult> {
     const startTime = Date.now();
     const cacheKey = this.generateCacheKey(plan, context);
-    
+
     // Check cache first
     if (this.validationCache.has(cacheKey)) {
       return this.validationCache.get(cacheKey)!;
@@ -98,13 +103,13 @@ export class KernelValidator {
 
     // Perform comprehensive validation
     const result = await this.performValidation(plan, context, hints);
-    
+
     // Cache the result
     this.validationCache.set(cacheKey, result);
-    
+
     // Update stats
     this.updateValidationStats(result);
-    
+
     return result;
   }
 
@@ -114,7 +119,7 @@ export class KernelValidator {
   private async performValidation(
     plan: Plan,
     context: ExecutionContext,
-    hints: ValidationHint[]
+    hints: ValidationHint[],
   ): Promise<ValidationResult> {
     const validationTimestamp = new Date().toISOString();
     const denialReasons: DenialReason[] = [];
@@ -163,10 +168,17 @@ export class KernelValidator {
 
     // Determine overall verdict
     const valid = denialReasons.length === 0;
-    const verdict = valid ? "APPROVED" : 
-                   requiredRefinements.length > 0 ? "REQUIRES_REFINEMENT" : "DENIED";
-    
-    const confidence = this.calculateConfidence(denialReasons, requiredRefinements, validationHints);
+    const verdict = valid
+      ? "APPROVED"
+      : requiredRefinements.length > 0
+        ? "REQUIRES_REFINEMENT"
+        : "DENIED";
+
+    const confidence = this.calculateConfidence(
+      denialReasons,
+      requiredRefinements,
+      validationHints,
+    );
 
     const result: ValidationResult = {
       valid,
@@ -185,7 +197,10 @@ export class KernelValidator {
   /**
    * Validate plan capabilities
    */
-  private async validateCapabilities(plan: Plan, context: ExecutionContext): Promise<{
+  private async validateCapabilities(
+    plan: Plan,
+    context: ExecutionContext,
+  ): Promise<{
     valid: boolean;
     denialReasons: DenialReason[];
     requiredRefinements: Refinement[];
@@ -199,9 +214,9 @@ export class KernelValidator {
     for (const step of plan.steps) {
       if (step.required_capabilities && step.required_capabilities.length > 0) {
         const missingCapabilities = step.required_capabilities.filter(
-          cap => !context.user_capabilities?.includes(cap)
+          (cap) => !context.user_capabilities?.includes(cap),
         );
-        
+
         if (missingCapabilities.length > 0) {
           denialReasons.push({
             code: "MISSING_CAPABILITIES",
@@ -212,7 +227,7 @@ export class KernelValidator {
             suggested_fixes: [
               "Request capability elevation",
               "Use alternative approach with available capabilities",
-              "Contact administrator for capability assignment"
+              "Contact administrator for capability assignment",
             ],
           });
 
@@ -239,7 +254,10 @@ export class KernelValidator {
   /**
    * Validate plan receipts
    */
-  private async validateReceipts(plan: Plan, context: ExecutionContext): Promise<{
+  private async validateReceipts(
+    plan: Plan,
+    context: ExecutionContext,
+  ): Promise<{
     valid: boolean;
     denialReasons: DenialReason[];
     requiredRefinements: Refinement[];
@@ -250,8 +268,8 @@ export class KernelValidator {
     const hints: ValidationHint[] = [];
 
     // Check if retrieval steps have valid receipts
-    const retrievalSteps = plan.steps.filter(s => s.type === "retrieval");
-    
+    const retrievalSteps = plan.steps.filter((s) => s.type === "retrieval");
+
     for (const step of retrievalSteps) {
       if (!step.receipt_id) {
         denialReasons.push({
@@ -263,7 +281,7 @@ export class KernelValidator {
           suggested_fixes: [
             "Generate access receipt for retrieval step",
             "Verify receipt signature and validity",
-            "Check receipt expiration"
+            "Check receipt expiration",
           ],
         });
 
@@ -289,7 +307,10 @@ export class KernelValidator {
   /**
    * Validate plan labels
    */
-  private async validateLabels(plan: Plan, context: ExecutionContext): Promise<{
+  private async validateLabels(
+    plan: Plan,
+    context: ExecutionContext,
+  ): Promise<{
     valid: boolean;
     denialReasons: DenialReason[];
     requiredRefinements: Refinement[];
@@ -303,9 +324,9 @@ export class KernelValidator {
     for (const step of plan.steps) {
       if (step.labels && step.labels.length > 0) {
         const unauthorizedLabels = step.labels.filter(
-          label => !this.isLabelAuthorized(label, context)
+          (label) => !this.isLabelAuthorized(label, context),
         );
-        
+
         if (unauthorizedLabels.length > 0) {
           denialReasons.push({
             code: "UNAUTHORIZED_LABELS",
@@ -316,7 +337,7 @@ export class KernelValidator {
             suggested_fixes: [
               "Remove unauthorized labels",
               "Request label access permissions",
-              "Use alternative labels with proper access"
+              "Use alternative labels with proper access",
             ],
           });
 
@@ -343,7 +364,10 @@ export class KernelValidator {
   /**
    * Validate plan policies
    */
-  private async validatePolicies(plan: Plan, context: ExecutionContext): Promise<{
+  private async validatePolicies(
+    plan: Plan,
+    context: ExecutionContext,
+  ): Promise<{
     valid: boolean;
     denialReasons: DenialReason[];
     requiredRefinements: Refinement[];
@@ -355,9 +379,9 @@ export class KernelValidator {
 
     // Check policy compliance
     const policyViolations = this.checkPolicyCompliance(plan, context);
-    
+
     if (policyViolations.length > 0) {
-      policyViolations.forEach(violation => {
+      policyViolations.forEach((violation) => {
         denialReasons.push({
           code: "POLICY_VIOLATION",
           message: violation.message,
@@ -389,7 +413,10 @@ export class KernelValidator {
   /**
    * Validate plan security
    */
-  private async validateSecurity(plan: Plan, context: ExecutionContext): Promise<{
+  private async validateSecurity(
+    plan: Plan,
+    context: ExecutionContext,
+  ): Promise<{
     valid: boolean;
     denialReasons: DenialReason[];
     requiredRefinements: Refinement[];
@@ -401,9 +428,9 @@ export class KernelValidator {
 
     // Check for security vulnerabilities
     const securityIssues = this.checkSecurityVulnerabilities(plan, context);
-    
+
     if (securityIssues.length > 0) {
-      securityIssues.forEach(issue => {
+      securityIssues.forEach((issue) => {
         denialReasons.push({
           code: "SECURITY_ISSUE",
           message: issue.message,
@@ -437,7 +464,7 @@ export class KernelValidator {
    */
   async autoReplan(request: ReplanRequest): Promise<ReplanResult> {
     const startTime = Date.now();
-    
+
     if (request.current_attempt >= request.max_replan_attempts) {
       return {
         success: false,
@@ -454,8 +481,11 @@ export class KernelValidator {
 
     try {
       // Apply refinements to create new plan
-      const newPlan = await this.applyRefinements(request.original_plan, request.required_refinements);
-      
+      const newPlan = await this.applyRefinements(
+        request.original_plan,
+        request.required_refinements,
+      );
+
       // Validate the new plan
       const validationResult = await this.validatePlan(newPlan, {
         ...request.original_plan.context,
@@ -463,7 +493,7 @@ export class KernelValidator {
       });
 
       const success = validationResult.valid || validationResult.verdict === "REQUIRES_REFINEMENT";
-      
+
       const result: ReplanResult = {
         success,
         new_plan: success ? newPlan : undefined,
@@ -473,7 +503,7 @@ export class KernelValidator {
           attempt_number: request.current_attempt,
           total_attempts: request.max_replan_attempts,
           processing_time_ms: Date.now() - startTime,
-          hints_used: request.hints.map(h => h.id),
+          hints_used: request.hints.map((h) => h.id),
         },
       };
 
@@ -491,7 +521,6 @@ export class KernelValidator {
       }
 
       return result;
-
     } catch (error) {
       console.error("Auto-replan failed:", error);
       return {
@@ -514,40 +543,46 @@ export class KernelValidator {
     return context.user_labels?.includes(label) || context.user_capabilities?.includes("admin");
   }
 
-  private checkPolicyCompliance(plan: Plan, context: ExecutionContext): Array<{
+  private checkPolicyCompliance(
+    plan: Plan,
+    context: ExecutionContext,
+  ): Array<{
     message: string;
     severity: "low" | "medium" | "high" | "critical";
     details: Record<string, any>;
     suggested_fixes: string[];
   }> {
     const violations = [];
-    
+
     // Check for policy violations based on plan content and context
     // This is a simplified implementation
-    
+
     return violations;
   }
 
-  private checkSecurityVulnerabilities(plan: Plan, context: ExecutionContext): Array<{
+  private checkSecurityVulnerabilities(
+    plan: Plan,
+    context: ExecutionContext,
+  ): Array<{
     message: string;
     severity: "low" | "medium" | "high" | "critical";
     details: Record<string, any>;
     suggested_fixes: string[];
   }> {
     const issues = [];
-    
+
     // Check for security vulnerabilities
     // This is a simplified implementation
-    
+
     return issues;
   }
 
   private async applyRefinements(plan: Plan, refinements: Refinement[]): Promise<Plan> {
     // Create a copy of the plan and apply refinements
     const newPlan = JSON.parse(JSON.stringify(plan));
-    
+
     // Apply refinements based on their types
-    refinements.forEach(refinement => {
+    refinements.forEach((refinement) => {
       switch (refinement.type) {
         case "capability_addition":
           // Add required capabilities to context
@@ -573,12 +608,12 @@ export class KernelValidator {
   private calculateConfidence(
     denialReasons: DenialReason[],
     requiredRefinements: Refinement[],
-    hints: ValidationHint[]
+    hints: ValidationHint[],
   ): number {
     let confidence = 1.0;
-    
+
     // Reduce confidence based on denial reasons
-    denialReasons.forEach(reason => {
+    denialReasons.forEach((reason) => {
       switch (reason.severity) {
         case "critical":
           confidence -= 0.4;
@@ -596,7 +631,7 @@ export class KernelValidator {
     });
 
     // Increase confidence based on helpful hints
-    hints.forEach(hint => {
+    hints.forEach((hint) => {
       if (hint.confidence > 0.8) {
         confidence += 0.05;
       }
@@ -613,7 +648,7 @@ export class KernelValidator {
       tenant: context.tenant,
       capabilities: context.user_capabilities?.sort(),
     };
-    
+
     return createHash("sha256").update(JSON.stringify(keyData)).digest("hex");
   }
 
@@ -621,20 +656,24 @@ export class KernelValidator {
     return createHash("sha256").update(JSON.stringify(plan)).digest("hex");
   }
 
-  private generateProofHash(plan: Plan, context: ExecutionContext, result: ValidationResult): string {
+  private generateProofHash(
+    plan: Plan,
+    context: ExecutionContext,
+    result: ValidationResult,
+  ): string {
     const proofData = {
       plan_hash: this.hashPlan(plan),
       context_hash: createHash("sha256").update(JSON.stringify(context)).digest("hex"),
       validation_result: result,
       timestamp: Date.now(),
     };
-    
+
     return createHash("sha256").update(JSON.stringify(proofData)).digest("hex");
   }
 
   private updateValidationStats(result: ValidationResult): void {
     this.validationStats.total_validations++;
-    
+
     switch (result.verdict) {
       case "APPROVED":
         this.validationStats.approved++;

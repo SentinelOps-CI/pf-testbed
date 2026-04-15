@@ -1,7 +1,6 @@
 import {
   AgentRunner,
   Plan,
-  PlanStep,
   ToolCall,
   ToolResult,
   VerificationResult,
@@ -10,7 +9,6 @@ import {
   PlanValidationError,
   CapabilityError,
   ReceiptError,
-  ToolExecutionError,
   SUPPORTED_JOURNEYS,
   SUPPORTED_TOOLS,
   AccessReceipt,
@@ -112,9 +110,7 @@ export abstract class BaseAgentRunner implements AgentRunner {
 
       if (
         plan.metadata?.risk_level &&
-        !["low", "medium", "high", "critical"].includes(
-          plan.metadata.risk_level,
-        )
+        !["low", "medium", "high", "critical"].includes(plan.metadata.risk_level)
       ) {
         errors.push("Invalid risk level");
       }
@@ -149,10 +145,7 @@ export abstract class BaseAgentRunner implements AgentRunner {
       // Verify plan first
       const verification = await this.verifyPlan(plan);
       if (!verification.valid) {
-        throw new PlanValidationError(
-          "Plan validation failed",
-          verification.errors,
-        );
+        throw new PlanValidationError("Plan validation failed", verification.errors);
       }
 
       // Track active plan
@@ -186,10 +179,7 @@ export abstract class BaseAgentRunner implements AgentRunner {
           } else if (step.type === "retrieval") {
             // Validate receipt
             if (!step.receipt) {
-              throw new ReceiptError(
-                "Missing receipt for retrieval step",
-                step.id,
-              );
+              throw new ReceiptError("Missing receipt for retrieval step", step.id);
             }
             step.status = "completed";
             step.duration = Date.now() - startTime;
@@ -269,8 +259,7 @@ export abstract class BaseAgentRunner implements AgentRunner {
       last_heartbeat: new Date(this.lastHeartbeat).toISOString(),
       active_plans: this.activePlans.size,
       total_executions: this.executionCount,
-      error_rate:
-        this.executionCount > 0 ? this.errorCount / this.executionCount : 0,
+      error_rate: this.executionCount > 0 ? this.errorCount / this.executionCount : 0,
     };
   }
 
@@ -279,10 +268,7 @@ export abstract class BaseAgentRunner implements AgentRunner {
    */
   protected validateCapability(required: string, available: string[]): void {
     if (!available.includes(required)) {
-      throw new CapabilityError(
-        `Required capability not available: ${required}`,
-        required,
-      );
+      throw new CapabilityError(`Required capability not available: ${required}`, required);
     }
   }
 

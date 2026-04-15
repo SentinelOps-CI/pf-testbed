@@ -131,7 +131,14 @@ export class RiskAwareRouter {
         model_type: "claude-3",
         cost_per_1k_tokens: 0.015,
         max_tokens: 200000,
-        capabilities: ["reasoning", "analysis", "generation", "sensitive_content", "compliance", "audit"],
+        capabilities: [
+          "reasoning",
+          "analysis",
+          "generation",
+          "sensitive_content",
+          "compliance",
+          "audit",
+        ],
         availability: 0.96,
         latency_p95_ms: 4000,
         latency_p99_ms: 8000,
@@ -150,7 +157,7 @@ export class RiskAwareRouter {
       },
     ];
 
-    tiers.forEach(tier => {
+    tiers.forEach((tier) => {
       this.modelTiers.set(tier.id, tier);
     });
   }
@@ -158,13 +165,9 @@ export class RiskAwareRouter {
   /**
    * Route a plan step based on risk assessment
    */
-  async routeStep(
-    step: PlanStep,
-    plan: Plan,
-    context: ExecutionContext
-  ): Promise<RoutingDecision> {
+  async routeStep(step: PlanStep, plan: Plan, context: ExecutionContext): Promise<RoutingDecision> {
     const startTime = Date.now();
-    
+
     // Check semantic cache first for low-risk operations
     const cacheEntry = await this.checkSemanticCache(step, plan, context);
     if (cacheEntry && cacheEntry.risk_level === "low") {
@@ -173,13 +176,13 @@ export class RiskAwareRouter {
     }
 
     this.routingStats.cache_misses++;
-    
+
     // Perform risk assessment
     const riskAssessment = await this.assessRisk(step, plan, context);
-    
+
     // Select appropriate model tier
     const selectedModel = this.selectModelTier(riskAssessment, context);
-    
+
     // Create routing decision
     const decision: RoutingDecision = {
       id: `route_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -200,7 +203,7 @@ export class RiskAwareRouter {
 
     // Store routing decision
     this.storeRoutingDecision(decision);
-    
+
     // Update stats
     this.updateRoutingStats(decision, Date.now() - startTime);
 
@@ -213,11 +216,11 @@ export class RiskAwareRouter {
   private async checkSemanticCache(
     step: PlanStep,
     plan: Plan,
-    context: ExecutionContext
+    context: ExecutionContext,
   ): Promise<SemanticCacheEntry | null> {
     const cacheKey = this.generateCacheKey(step, plan, context);
     const entry = this.semanticCache.get(cacheKey);
-    
+
     if (!entry) {
       return null;
     }
@@ -241,7 +244,7 @@ export class RiskAwareRouter {
   private async assessRisk(
     step: PlanStep,
     plan: Plan,
-    context: ExecutionContext
+    context: ExecutionContext,
   ): Promise<RiskAssessment> {
     const riskFactors: RiskFactor[] = [];
     let totalRiskScore = 0;
@@ -290,7 +293,7 @@ export class RiskAwareRouter {
   /**
    * Assess content risk
    */
-  private assessContentRisk(step: PlanStep, plan: Plan): RiskFactor {
+  private assessContentRisk(step: PlanStep, _plan: Plan): RiskFactor {
     let severity: "low" | "medium" | "high" | "critical" = "low";
     let weight = 0.2;
 
@@ -357,7 +360,7 @@ export class RiskAwareRouter {
   /**
    * Assess data risk
    */
-  private assessDataRisk(step: PlanStep, plan: Plan): RiskFactor {
+  private assessDataRisk(step: PlanStep, _plan: Plan): RiskFactor {
     let severity: "low" | "medium" | "high" | "critical" = "low";
     let weight = 0.25;
 
@@ -391,16 +394,16 @@ export class RiskAwareRouter {
   /**
    * Assess operation risk
    */
-  private assessOperationRisk(step: PlanStep, plan: Plan): RiskFactor {
+  private assessOperationRisk(step: PlanStep, _plan: Plan): RiskFactor {
     let severity: "low" | "medium" | "high" | "critical" = "low";
     let weight = 0.2;
 
     // Check operation type
-    if (step.type === "write" || step.type === "delete") {
+    if (step.operation === "write" || step.operation === "delete") {
       severity = "high";
       weight = 0.35;
     }
-    if (step.type === "admin" || step.type === "system") {
+    if (step.operation === "admin" || step.operation === "system") {
       severity = "critical";
       weight = 0.45;
     }
@@ -451,13 +454,14 @@ export class RiskAwareRouter {
   /**
    * Select appropriate model tier based on risk
    */
-  private selectModelTier(riskAssessment: RiskAssessment, context: ExecutionContext): ModelTier {
-    const availableTiers = Array.from(this.modelTiers.values())
-      .filter(tier => tier.availability > 0.95); // Only consider highly available models
+  private selectModelTier(riskAssessment: RiskAssessment, _context: ExecutionContext): ModelTier {
+    const availableTiers = Array.from(this.modelTiers.values()).filter(
+      (tier) => tier.availability > 0.95,
+    ); // Only consider highly available models
 
     // Sort by risk level compatibility and cost
     const compatibleTiers = availableTiers
-      .filter(tier => this.isModelCompatibleWithRisk(tier, riskAssessment))
+      .filter((tier) => this.isModelCompatibleWithRisk(tier, riskAssessment))
       .sort((a, b) => {
         // Primary: risk compatibility, Secondary: cost
         const riskDiff = this.getRiskScore(a.risk_level) - this.getRiskScore(b.risk_level);
@@ -467,8 +471,8 @@ export class RiskAwareRouter {
 
     if (compatibleTiers.length === 0) {
       // Fallback to highest capability model
-      return availableTiers.sort((a, b) => 
-        this.getRiskScore(b.risk_level) - this.getRiskScore(a.risk_level)
+      return availableTiers.sort(
+        (a, b) => this.getRiskScore(b.risk_level) - this.getRiskScore(a.risk_level),
       )[0];
     }
 
@@ -481,7 +485,7 @@ export class RiskAwareRouter {
   private isModelCompatibleWithRisk(model: ModelTier, riskAssessment: RiskAssessment): boolean {
     const modelRiskScore = this.getRiskScore(model.risk_level);
     const requiredRiskScore = this.getRiskScore(riskAssessment.overall_risk);
-    
+
     // Model must have equal or higher risk handling capability
     return modelRiskScore >= requiredRiskScore;
   }
@@ -491,11 +495,16 @@ export class RiskAwareRouter {
    */
   private getRiskScore(severity: "low" | "medium" | "high" | "critical"): number {
     switch (severity) {
-      case "low": return 25;
-      case "medium": return 50;
-      case "high": return 75;
-      case "critical": return 100;
-      default: return 0;
+      case "low":
+        return 25;
+      case "medium":
+        return 50;
+      case "high":
+        return 75;
+      case "critical":
+        return 100;
+      default:
+        return 0;
     }
   }
 
@@ -514,7 +523,7 @@ export class RiskAwareRouter {
    */
   private generateMitigationStrategies(
     riskFactors: RiskFactor[],
-    overallRisk: "low" | "medium" | "high" | "critical"
+    overallRisk: "low" | "medium" | "high" | "critical",
   ): string[] {
     const strategies: string[] = [];
 
@@ -535,7 +544,7 @@ export class RiskAwareRouter {
     }
 
     // Add specific strategies based on risk factors
-    riskFactors.forEach(factor => {
+    riskFactors.forEach((factor) => {
       if (factor.severity === "critical") {
         strategies.push(`Address ${factor.category} risk: ${factor.description}`);
       }
@@ -554,13 +563,18 @@ export class RiskAwareRouter {
   /**
    * Calculate routing confidence
    */
-  private calculateRoutingConfidence(riskAssessment: RiskAssessment, selectedModel: ModelTier): number {
+  private calculateRoutingConfidence(
+    riskAssessment: RiskAssessment,
+    selectedModel: ModelTier,
+  ): number {
     let confidence = 0.8; // Base confidence
 
     // Adjust based on risk alignment
     if (selectedModel.risk_level === riskAssessment.overall_risk) {
       confidence += 0.15;
-    } else if (this.getRiskScore(selectedModel.risk_level) > this.getRiskScore(riskAssessment.overall_risk)) {
+    } else if (
+      this.getRiskScore(selectedModel.risk_level) > this.getRiskScore(riskAssessment.overall_risk)
+    ) {
       confidence += 0.1;
     }
 
@@ -584,13 +598,13 @@ export class RiskAwareRouter {
    */
   private detectSensitivePatterns(content: string): string[] {
     const patterns: string[] = [];
-    
+
     if (/\bpassword\b/i.test(content)) patterns.push("password");
     if (/\bssn\b/i.test(content)) patterns.push("ssn");
     if (/\bcredit.?card\b/i.test(content)) patterns.push("credit_card");
     if (/\bapi.?key\b/i.test(content)) patterns.push("api_key");
     if (/\bprivate.?key\b/i.test(content)) patterns.push("private_key");
-    
+
     return patterns;
   }
 
@@ -603,7 +617,7 @@ export class RiskAwareRouter {
       tenant: context.tenant,
       labels: step.labels?.sort(),
     };
-    
+
     return createHash("sha256").update(JSON.stringify(keyData)).digest("hex");
   }
 
@@ -619,18 +633,19 @@ export class RiskAwareRouter {
     const now = new Date();
     const created = new Date(entry.metadata.created_at);
     const ttlMs = entry.metadata.ttl_seconds * 1000;
-    
-    return (now.getTime() - created.getTime()) < ttlMs;
+
+    return now.getTime() - created.getTime() < ttlMs;
   }
 
   private createCachedRoutingDecision(
     step: PlanStep,
     plan: Plan,
     context: ExecutionContext,
-    cacheEntry: SemanticCacheEntry
+    cacheEntry: SemanticCacheEntry,
   ): RoutingDecision {
-    const modelTier = this.modelTiers.get(cacheEntry.model_used) || this.modelTiers.get("gpt-3.5-cache")!;
-    
+    const modelTier =
+      this.modelTiers.get(cacheEntry.model_used) || this.modelTiers.get("gpt-3.5-cache")!;
+
     return {
       id: `cached_route_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       plan_id: plan.id,
@@ -664,7 +679,7 @@ export class RiskAwareRouter {
 
   private updateRoutingStats(decision: RoutingDecision, processingTime: number): void {
     this.routingStats.total_routes++;
-    
+
     switch (decision.risk_assessment.overall_risk) {
       case "low":
         this.routingStats.low_risk_routes++;
@@ -682,7 +697,8 @@ export class RiskAwareRouter {
 
     // Update average routing time
     const totalTime = this.routingStats.avg_routing_time_ms * (this.routingStats.total_routes - 1);
-    this.routingStats.avg_routing_time_ms = (totalTime + processingTime) / this.routingStats.total_routes;
+    this.routingStats.avg_routing_time_ms =
+      (totalTime + processingTime) / this.routingStats.total_routes;
   }
 
   // Public access methods

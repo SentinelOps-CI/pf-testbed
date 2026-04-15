@@ -23,15 +23,10 @@ describe("Observability Dashboards", () => {
       cy.visit("http://localhost:3000/d/slo-overview/slo-overview");
 
       // Wait for dashboard to load
-      cy.get('[data-testid="dashboard-container"]', { timeout: 10000 }).should(
-        "be.visible",
-      );
+      cy.get('[data-testid="dashboard-container"]', { timeout: 10000 }).should("be.visible");
 
       // Check dashboard title
-      cy.get('[data-testid="dashboard-title"]').should(
-        "contain",
-        "SLO Overview",
-      );
+      cy.get('[data-testid="dashboard-title"]').should("contain", "SLO Overview");
     });
 
     it("should display SLO compliance metrics", () => {
@@ -107,18 +102,9 @@ describe("Observability Dashboards", () => {
 
       // Check time range options
       cy.get('[data-testid="time-picker-options"]').should("be.visible");
-      cy.get('[data-testid="time-picker-options"]').should(
-        "contain",
-        "Last 1 hour",
-      );
-      cy.get('[data-testid="time-picker-options"]').should(
-        "contain",
-        "Last 6 hours",
-      );
-      cy.get('[data-testid="time-picker-options"]').should(
-        "contain",
-        "Last 24 hours",
-      );
+      cy.get('[data-testid="time-picker-options"]').should("contain", "Last 1 hour");
+      cy.get('[data-testid="time-picker-options"]').should("contain", "Last 6 hours");
+      cy.get('[data-testid="time-picker-options"]').should("contain", "Last 24 hours");
     });
 
     it("should allow refresh interval configuration", () => {
@@ -156,11 +142,10 @@ describe("Observability Dashboards", () => {
       // Wait for initial data
       cy.get('[data-testid="panel-1"]').should("be.visible");
 
-      // Wait for refresh and check data updates
-      cy.wait(10000); // Wait for potential refresh
-
-      // Verify panels still have data
-      cy.get('[data-testid="panel-1"]').should("be.visible");
+      // Verify panels keep rendering data without fixed sleep.
+      cy.get('[data-testid="panel-1"]', { timeout: 15000 }).within(() => {
+        cy.get('[data-testid="stat-text"]').should("be.visible");
+      });
     });
   });
 
@@ -171,9 +156,7 @@ describe("Observability Dashboards", () => {
       cy.visit("http://localhost:3000/d/slo-overview/slo-overview");
 
       // Wait for dashboard to be fully loaded with data
-      cy.get('[data-testid="panel-1"]', { timeout: 10000 }).should(
-        "be.visible",
-      );
+      cy.get('[data-testid="panel-1"]', { timeout: 10000 }).should("be.visible");
       cy.get('[data-testid="panel-1"]').within(() => {
         cy.get('[data-testid="stat-text"]').should("not.contain", "No data");
       });
